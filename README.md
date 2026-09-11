@@ -9,10 +9,12 @@ A backend service for running a small-to-mid-size medical clinic: patient record
 ## Table of contents
 
 - [Tech stack](#tech-stack)
+- [Spring Boot 4 notes](#spring-boot-4-notes)
 - [Architecture](#architecture)
 - [Features by layer](#features-by-layer)
 - [Feature modules](#feature-modules)
 - [Project structure](#project-structure)
+- [Build configuration](#build-configuration)
 - [Domain model](#domain-model)
 - [Roles and permissions](#roles-and-permissions)
 - [Getting started](#getting-started)
@@ -26,20 +28,44 @@ A backend service for running a small-to-mid-size medical clinic: patient record
 
 ## Tech stack
 
-| Layer | Technology | Notes |
+| Layer | Technology | Version |
 |---|---|---|
-| Language | Java 21 | Records, pattern matching, virtual threads available |
-| Framework | Spring Boot 3.3.x | Web MVC, Validation, Actuator |
-| Security | Spring Security 6 + Keycloak 25 | OAuth2 Resource Server, JWT bearer tokens |
-| Persistence | Spring Data JPA / Hibernate 6 | `ddl-auto=validate` only |
-| Database | PostgreSQL 16 | `NUMERIC(12,2)` for money, `uuid` primary keys |
-| Migrations | Flyway | Versioned SQL under `db/migration` |
-| Mapping | MapStruct 1.5 | Compile-time entity ↔ DTO mapping |
-| Boilerplate | Lombok | Getters, builders, constructors |
-| API docs | springdoc-openapi 2.x | Swagger UI at `/swagger-ui.html` |
-| Testing | JUnit 5, Mockito, Testcontainers, REST Assured | Real Postgres in integration tests |
-| Build | Maven | Wrapper committed (`./mvnw`) |
-| Runtime | Docker + Docker Compose | API, Postgres, Keycloak |
+| Language | Java | 26 |
+| Build tool | Gradle (Kotlin DSL) | 9.7.1 |
+| Framework | Spring Boot | 4.1.1 |
+| Core framework | Spring Framework | 7.x (via BOM) |
+| Security | Spring Security + Keycloak | 7.x (via BOM) / Keycloak 26.7.2 |
+| Persistence | Spring Data JPA / Hibernate | 7.x (via BOM) |
+| Database | PostgreSQL | 18 |
+| Migrations | Flyway | via BOM |
+| JSON | Jackson | 3.x (via BOM) |
+| Mapping | MapStruct | 1.6.x |
+| Boilerplate | Lombok | 1.18.48 |
+| API docs | springdoc-openapi | 3.1.1 |
+| Testing | JUnit 5, Mockito, Testcontainers | via BOM |
+| Runtime | Docker + Docker Compose | — |
+
+Anything marked "via BOM" is managed by the Spring Boot dependency BOM and must not be pinned by hand. Overriding a BOM-managed version is the most common cause of mystery `NoSuchMethodError`s at startup.
+
+---
+
+## Spring Boot 4 notes
+
+Spring Boot 4 is a major release and most tutorials online still target 3.x. The differences that affect this project:
+
+**Jackson 3.** Spring Boot 4 moved from Jackson 2 to Jackson 3. The package root changed from `com.fasterxml.jackson` to `tools.jackson`. Any custom serializer, deserializer, or `ObjectMapper` configuration copied from a Spring Boot 3 tutorial will not compile. `jackson-annotations` stayed at `com.fasterxml.jackson.annotation`, which makes the split confusing — `@JsonProperty` is unchanged, `JsonSerializer` is not.
+
+**Jakarta EE 11 / Servlet 6.1 baseline.** Fine for a greenfield project; relevant only if you pull in an older third-party library.
+
+**JSpecify null-safety.** Spring Boot 4 adopts JSpecify annotations throughout. You don't have to use them, but your IDE will start flagging genuine null issues in Spring APIs, which is a feature, not a problem.
+
+**Built-in API versioning.** Spring Framework 7 supports version-aware request mapping natively, so `@GetMapping(value = "/patients", version = "1.0")` is now an alternative to a `/api/v1` path prefix. This project uses the path prefix because it's simpler to demonstrate and easier to document, but the native mechanism is worth a paragraph in your report if you want to show you know it exists.
+
+**Java version ceiling.** Spring Boot 4.1.1 supports Java 17 through 26 — Java 26 is the top of the supported range, not the middle of it. Gradle 9.7.1 likewise runs on JVM 17–26 and does not yet support JVM 27. Java 27 releases on 2026-09-15, so if your machine auto-updates to a JDK 27 shortly after you start, both the Gradle daemon and Boot will refuse it. Pin the toolchain (as the build file below does) and don't let an IDE quietly bump it.
+
+**Java 26 is not LTS.** It was released 2026-03-17; Java 25 is the current LTS. Java 26 is a legitimate choice and everything in this stack supports it, but if your examiner needs to build the project on their own machine months from now, Java 25 LTS is the lower-friction default. Changing it is a one-line edit to the toolchain block.
+
+**Annotation processing on JDK 23+.** javac no longer runs annotation processors by default. Gradle handles this correctly as long as processors are declared in the `annotationProcessor` configuration — which is why Lombok and MapStruct appear there below, not in `implementation`.
 
 ---
 
@@ -142,11 +168,20 @@ Cross-cutting concerns (security, auditing, exception handling, OpenAPI config) 
 
 ```
 clinic-management-api/
+├── build.gradle.kts
+├── settings.gradle.kts
+├── gradle.properties
+├── gradle/
+│   ├── libs.versions.toml
+│   └── wrapper/
+│       ├── gradle-wrapper.jar
+│       └── gradle-wrapper.properties
+├── gradlew / gradlew.bat
 ├── docker-compose.yml
 ├── Dockerfile
-├── pom.xml
-├── mvnw / mvnw.cmd
 ├── README.md
+├── docker/
+│   └── keycloak/clinic-realm.json
 ├── docs/
 │   ├── erd.png
 │   ├── architecture.png
@@ -299,6 +334,103 @@ clinic-management-api/
 
 ---
 
+## Build configuration
+
+### `gradle/libs.versions.toml`
+
+A version catalog keeps every version in one place and is the idiomatic Gradle approach.
+
+```toml
+[versions]
+springBoot = "4.1.1"
+springDependencyManagement = "1.1.7"
+springdoc = "3.1.1"
+mapstruct = "1.6.3"
+lombok = "1.18.48"
+lombokMapstructBinding = "0.2.0"
+
+[libraries]
+springdoc-webmvc-ui = { module = "org.springdoc:springdoc-openapi-starter-webmvc-ui", version.ref = "springdoc" }
+mapstruct = { module = "org.mapstruct:mapstruct", version.ref = "mapstruct" }
+mapstruct-processor = { module = "org.mapstruct:mapstruct-processor", version.ref = "mapstruct" }
+lombok = { module = "org.projectlombok:lombok", version.ref = "lombok" }
+lombok-mapstruct-binding = { module = "org.projectlombok:lombok-mapstruct-binding", version.ref = "lombokMapstructBinding" }
+
+[plugins]
+spring-boot = { id = "org.springframework.boot", version.ref = "springBoot" }
+spring-dependency-management = { id = "io.spring.dependency-management", version.ref = "springDependencyManagement" }
+```
+
+### `build.gradle.kts`
+
+```kotlin
+plugins {
+    java
+    alias(libs.plugins.spring.boot)
+    alias(libs.plugins.spring.dependency.management)
+}
+
+group = "com.example"
+version = "0.0.1-SNAPSHOT"
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(26)
+    }
+}
+
+configurations {
+    compileOnly { extendsFrom(configurations.annotationProcessor.get()) }
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation("org.springframework.boot:spring-boot-starter-web")
+    implementation("org.springframework.boot:spring-boot-starter-data-jpa")
+    implementation("org.springframework.boot:spring-boot-starter-validation")
+    implementation("org.springframework.boot:spring-boot-starter-security")
+    implementation("org.springframework.boot:spring-boot-starter-oauth2-resource-server")
+    implementation("org.springframework.boot:spring-boot-starter-actuator")
+
+    implementation("org.flywaydb:flyway-core")
+    implementation("org.flywaydb:flyway-database-postgresql")
+
+    implementation(libs.springdoc.webmvc.ui)
+    implementation(libs.mapstruct)
+
+    compileOnly(libs.lombok)
+    annotationProcessor(libs.lombok)
+    annotationProcessor(libs.mapstruct.processor)
+    annotationProcessor(libs.lombok.mapstruct.binding)
+
+    runtimeOnly("org.postgresql:postgresql")
+
+    testImplementation("org.springframework.boot:spring-boot-starter-test")
+    testImplementation("org.springframework.security:spring-security-test")
+    testImplementation("org.springframework.boot:spring-boot-testcontainers")
+    testImplementation("org.testcontainers:junit-jupiter")
+    testImplementation("org.testcontainers:postgresql")
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+}
+
+tasks.withType<Test> {
+    useJUnitPlatform()
+}
+```
+
+Three things in there are load-bearing and easy to get wrong:
+
+- `lombok-mapstruct-binding` must be present. Without it MapStruct runs before Lombok generates getters and silently produces mappers that map nothing.
+- Annotation processors go in `annotationProcessor`, never `implementation`. On JDK 23+ this is what enables processing at all.
+- The `compileOnly { extendsFrom(annotationProcessor) }` block is what lets Lombok annotations resolve at compile time without shipping Lombok in the jar.
+
+Generate the initial skeleton from [start.spring.io](https://start.spring.io) rather than hand-writing the wrapper and plugin block — it emits the correct plugin versions for whichever Boot version you pick.
+
+---
+
 ## Domain model
 
 Seventeen tables across five groups. Full ERD in `docs/erd.png`.
@@ -366,17 +498,17 @@ The asymmetries are intentional: receptionists see invoices but not clinical not
 
 ### Prerequisites
 
-- JDK 21
+- JDK 26 (JDK 25 LTS also works — change the toolchain block)
 - Docker and Docker Compose
-- Maven (or use the bundled `./mvnw`)
+- No Gradle install needed; use the wrapper
 
 ### Run everything
 
 ```bash
 git clone <repo-url>
 cd clinic-management-api
-docker compose up -d        # Postgres + Keycloak
-./mvnw spring-boot:run
+docker compose up -d        # Postgres 18 + Keycloak 26.7.2
+./gradlew bootRun
 ```
 
 | Service | URL |
@@ -385,6 +517,18 @@ docker compose up -d        # Postgres + Keycloak
 | Swagger UI | http://localhost:8081/swagger-ui.html |
 | Keycloak admin | http://localhost:8080 (`admin` / `admin`) |
 | Postgres | `localhost:5432`, db `clinic` |
+
+### Common Gradle tasks
+
+```bash
+./gradlew bootRun            # run the app
+./gradlew build              # compile, test, assemble
+./gradlew test               # unit tests only
+./gradlew check              # tests + verification tasks
+./gradlew bootJar            # executable jar in build/libs
+./gradlew dependencies       # resolved dependency tree
+./gradlew --refresh-dependencies build
+```
 
 ### Keycloak setup
 
@@ -441,7 +585,13 @@ spring:
       resourceserver:
         jwt:
           issuer-uri: ${KEYCLOAK_ISSUER:http://localhost:8080/realms/clinic}
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
 ```
+
+`ddl-auto: validate` means Flyway owns the schema and Hibernate only checks that the entities match it. Never use `update` — it drifts silently and cannot be reproduced by your examiner.
 
 `open-in-view: false` is deliberate — it surfaces lazy-loading mistakes at development time instead of hiding them behind an open session.
 
@@ -496,14 +646,16 @@ Errors follow RFC 7807:
 ## Testing
 
 ```bash
-./mvnw test                  # unit tests
-./mvnw verify                # unit + integration (starts Testcontainers)
-./mvnw jacoco:report         # coverage → target/site/jacoco/index.html
+./gradlew test                       # unit tests
+./gradlew check                      # unit + integration (starts Testcontainers)
+./gradlew jacocoTestReport           # coverage → build/reports/jacoco/test/html/index.html
 ```
 
 - **Unit tests** cover the rules worth breaking: appointment overlap, invoice totals, FEFO dispensing, status transitions.
 - **Integration tests** run against a real PostgreSQL container via Testcontainers — no H2, whose SQL dialect differs enough to hide bugs.
 - **Security tests** use `@WithMockUser(authorities = ...)` to assert that 403s actually fire for every restricted endpoint.
+
+Testcontainers needs a running Docker daemon. If `./gradlew check` fails with "Could not find a valid Docker environment", that's the cause, not your test.
 
 ---
 
@@ -514,6 +666,7 @@ Errors follow RFC 7807:
 - Never edit an applied Flyway migration; add a new versioned file
 - Every new endpoint ships with a `@PreAuthorize` annotation and at least one test
 - DTOs are Java records; entities are Lombok classes
+- All versions live in `gradle/libs.versions.toml`, never inline in `build.gradle.kts`
 
 ---
 
