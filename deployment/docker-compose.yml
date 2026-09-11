@@ -1,0 +1,66 @@
+networks:
+  cms-net:
+    external: true
+
+volumes:
+  cms-vol:
+  keycloak-cms-db-vol:
+
+services:
+
+  cms-db:
+    image: postgres:17.10
+    container_name: cms-db
+    ports:
+      - "1200:5432"
+
+    environment:
+      POSTGRES_USER: ${POSTGRES_USERNAME}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+
+    volumes:
+      - cms-vol:/var/lib/postgresql/data
+      - ./init_db:/docker-entrypoint-initdb.d
+
+    networks:
+      - cms-net
+
+
+  keycloak-cms-db:
+    image: quay.io/keycloak/keycloak:latest
+    container_name: keycloak-cms-db
+    command: start-dev
+    ports:
+      - "1201:8080"
+
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://cms-db:5432/keycloak_cms_db
+      KC_DB_USERNAME: ${POSTGRES_USERNAME}
+      KC_DB_PASSWORD: ${POSTGRES_PASSWORD}
+
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KC_ADMIN_USERNAME}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KC_ADMIN_PASSWORD}
+
+      KC_HOSTNAME: localhost
+      KC_HTTP_ENABLED: true
+      KC_PROXY_HEADERS: xforwarded
+      KC_CACHE: ispn
+      KC_LOG_LEVEL: INFO
+      KC_METRICS_ENABLED: true
+      KC_HEALTH_ENABLED: true
+      JAVA_OPTS_APPEND: "-Xms512m -Xmx2048m"
+
+    volumes:
+      - keycloak-cms-db-vol:/opt/keycloak/data
+      - ./keycloak/themes:/opt/keycloak/themes
+      - ./keycloak/providers:/opt/keycloak/providers
+
+    depends_on:
+      - cms-db
+
+    networks:
+      - cms-net
+
+    restart: unless-stopped
