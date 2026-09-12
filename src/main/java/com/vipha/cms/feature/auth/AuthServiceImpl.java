@@ -1,5 +1,7 @@
 package com.vipha.cms.feature.auth;
 
+import com.vipha.cms.common.exception.BusinessRuleException;
+import com.vipha.cms.common.exception.ResourceNotFoundException;
 import com.vipha.cms.feature.auth.dto.RegisterRequest;
 import com.vipha.cms.feature.userprofile.UserProfile;
 import com.vipha.cms.feature.userprofile.UserProfileRepository;
@@ -22,7 +24,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
-
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -31,110 +32,113 @@ public class AuthServiceImpl implements AuthService {
     private final Keycloak keycloak;
     private final UserProfileRepository userProfileRepository;
 
-
     @Value("${keycloak.realm}")
     private String realm;
 
-    private UsersResource getUsersResource(){
+    private UsersResource getUsersResource() {
         return keycloak.realm(realm).users();
     }
-    private GroupsResource getGroupsResource(){
+    private GroupsResource getGroupsResource() {
         return keycloak.realm(realm).groups();
     }
+    private UserRepresentation getUser(String username) {
+        List<UserRepresentation> users = getUsersResource().search(username);
 
-    private UserRepresentation getUser(String username){
-        return getUsersResource().search(username).getFirst();
-    }
+        if (users.isEmpty()) {
+            throw new ResourceNotFoundException("User not found");
+        }
 
-    private void saveUserProfile(String username){
-        UserRepresentation createUser =getUser(username);
-        UserProfile userProfile = new UserProfile();
-        userProfile.setId(createUser.getId());
-
-        userProfileRepository.save(userProfile);
-
+        return users.getFirst();
     }
 
     @Override
-    public void register(RegisterRequest registerRequest) {
-        // Create UserRepresentation
-        UserRepresentation user = new UserRepresentation();
-        user.setUsername(registerRequest.username());
-        user.setEmail(registerRequest.email());
-        user.setFirstName(registerRequest.firstName());
-        user.setLastName(registerRequest.lastName());
+    public void register(RegisterRequest request) {
 
-        // Validate password and confirmed password
-        if (!registerRequest.password().equals(registerRequest.confirmedPassword())) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Passwords do not match. Please try again");
+        if (!request.password().equals(request.confirmedPassword())) {
+            throw new BusinessRuleException("Passwords do not match");
         }
 
-        // Prepare password credential
-        CredentialRepresentation credential = new CredentialRepresentation();
-        credential.setType(CredentialRepresentation.PASSWORD);
-        credential.setValue(registerRequest.password());
-        user.setCredentials(List.of(credential));
-
-        // Default value
+        UserRepresentation user = new UserRepresentation();
+        user.setUsername(request.username());
+        user.setEmail(request.email());
+        user.setFirstName(request.firstName());
+        user.setLastName(request.lastName());
         user.setEmailVerified(true);
         user.setEnabled(true);
 
-        // Save into keycloak
-        UsersResource usersResource = keycloak.realm(realm).users();
+        CredentialRepresentation credential = new CredentialRepresentation();
+        credential.setType(CredentialRepresentation.PASSWORD);
+        credential.setValue(request.password());
 
-        try (Response response = usersResource.create(user)) {
-            // TODO: failed (409, 401, 403, ...), succeed (201, 200, ...)
-            log.info("Response status code: {}", response.getStatus());
-            if (response.getStatus() == HttpStatus.FORBIDDEN.value()) {
-                throw new ResponseStatusException(HttpStatus.FORBIDDEN);
-            }
-            if (response.getStatus() == HttpStatus.UNAUTHORIZED.value()) {
-                throw new ResponseStatusException(HttpStatus.UNAUTHORIZED);
-            }
+        user.setCredentials(List.of(credential));
+
+        try (Response response = getUsersResource().create(user)) {
+
             if (response.getStatus() == HttpStatus.CONFLICT.value()) {
-                throw new ResponseStatusException(HttpStatus.CONFLICT,
-                        "Username or email already exists");
+                throw new BusinessRuleException(
+                        "Username or email already exists"
+                );
             }
-            if (response.getStatus() == HttpStatus.CREATED.value()) {
-                log.info("User {} created successfully", user.getUsername());
-                saveUserProfile(user.getUsername());
-                assignRoles(user.getUsername());
-//                assignGroup(user.getUsername());
+
+            if (response.getStatus() != HttpStatus.CREATED.value()) {
+                log.error(
+                        "Failed to create Keycloak user. Status: {}",
+                        response.getStatus()
+                );
+
+                throw new ResponseStatusException(
+                        HttpStatus.INTERNAL_SERVER_ERROR,
+                        "Failed to create user"
+                );
             }
+
+            log.info("User {} created successfully", user.getUsername());
+
+            UserRepresentation createdUser = getUser(user.getUsername());
+
+            saveUserProfile(createdUser.getId());
+            assignRoles(createdUser.getId());
+            assignGroup(createdUser.getId());
         }
     }
 
+    private void saveUserProfile(String userId) {
+        UserProfile userProfile = new UserProfile();
+        userProfile.setId(userId);
 
+        userProfileRepository.save(userProfile);
+    }
 
-//    public void assignGroup(String username){
-//        UserRepresentation createUser =getUser(username);
-//        UserResource keycloakUser = getUsersResource().get(createUser.getId());
-//        GroupsResource groupsResource = keycloak.realm(realm).groups();
-//        GroupRepresentation patientGroup=groupsResource
-//                .groups("patient-management",0,1).getFirst();
-//        log.info("Group Id: {}", patientGroup.getId());
-//        keycloakUser.joinGroup(patientGroup.getId());
-//    }
+    private void assignRoles(String userId) {
 
-    private void assignRoles(String username) {
-        // Start assigning role (USER, CUSTOMER)
-        // Load created user by username from Keycloak
-        UserRepresentation createUser =getUser(username);
-        UserResource keycloakUser = getUsersResource().get(createUser.getId());
+        UserResource keycloakUser = getUsersResource().get(userId);
 
-        // Create RoleRepresentation
         RolesResource rolesResource = keycloak.realm(realm).roles();
-        RoleRepresentation roleUser = rolesResource
+
+        RoleRepresentation userRole = rolesResource
                 .get(KeycloakRoleEnum.USER.toString())
                 .toRepresentation();
-        RoleRepresentation rolePatient = rolesResource
+
+        RoleRepresentation patientRole = rolesResource
                 .get(KeycloakRoleEnum.PATIENT.toString())
                 .toRepresentation();
-        List<RoleRepresentation> roles = List.of(roleUser, rolePatient);
 
         keycloakUser.roles()
                 .realmLevel()
-                .add(roles);
+                .add(List.of(userRole, patientRole));
+    }
+
+    private void assignGroup(String userId) {
+        UserResource keycloakUser = getUsersResource().get(userId);
+
+        GroupRepresentation patientGroup = getGroupsResource()
+                .groups("patient-management", 0, 1)
+                .stream()
+                .findFirst()
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("Patient group not found")
+                );
+
+        keycloakUser.joinGroup(patientGroup.getId());
     }
 }

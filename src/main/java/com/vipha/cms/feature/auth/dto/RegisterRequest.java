@@ -1,19 +1,27 @@
 package com.vipha.cms.feature.auth.dto;
 
+import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 
 public record RegisterRequest(
-        @NotBlank(message = "username is required")
+        @NotBlank(message = "Username is required")
         String username,
-        @NotBlank(message = "email is required")
+
+        @NotBlank(message = "Email is required")
+        @Email(message = "Invalid email format")
         String email,
-        @NotBlank(message = "first name is required")
+
+        @NotBlank(message = "First name is required")
         String firstName,
-        @NotBlank(message = "last name is required")
+
+        @NotBlank(message = "Last name is required")
         String lastName,
-        @NotBlank(message = "password is required")
+
+        @NotBlank(message = "Password is required")
+        @Size(min = 8, message = "Password must be at least 8 characters")
         String password,
-        @NotBlank(message = "confirm password is required")
+
+        @NotBlank(message = "Confirmed password is required")
         String confirmedPassword
-) {
-}
+) {}

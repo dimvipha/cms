@@ -1,5 +1,6 @@
 package com.vipha.cms.feature.userprofile;
 
+import com.vipha.cms.common.exception.ResourceNotFoundException;
 import com.vipha.cms.feature.userprofile.dto.PatchUserProfileRequest;
 import com.vipha.cms.feature.userprofile.dto.UserProfileResponse;
 import com.vipha.cms.security.AuthUtils;
@@ -75,7 +76,7 @@ public class UserProfileServiceImpl implements UserProfileService {
     private UserProfile getUserProfile(String userId) {
         return userProfileRepository.findById(userId)
                 .orElseThrow(() ->
-                        new RuntimeException("User profile not found")
+                        new ResourceNotFoundException("User profile not found")
                 );
     }
 
