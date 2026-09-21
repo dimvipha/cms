@@ -74,6 +74,7 @@ public class SecurityConfig {
                         .hasAuthority(Roles.ADMIN)
 
                         // Own profile
+                        .requestMatchers(HttpMethod.GET, "/api/v1/user-profiles/all").hasAuthority(Roles.ADMIN)
                         .requestMatchers("/api/v1/user-profiles/**").authenticated()
 
                         .anyRequest().authenticated())

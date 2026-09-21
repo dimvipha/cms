@@ -4,6 +4,7 @@ import com.vipha.cms.feature.userprofile.dto.PatchUserProfileRequest;
 import com.vipha.cms.feature.userprofile.dto.UserProfileResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -21,5 +22,13 @@ public class UserProfileController {
     @GetMapping
     public UserProfileResponse getUserProfile() {
         return userProfileService.getUserProfile();
+    }
+
+    @GetMapping("/all")
+    public Page<UserProfileResponse> findAll(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size
+    ) {
+        return userProfileService.findAll(page, size);
     }
 }

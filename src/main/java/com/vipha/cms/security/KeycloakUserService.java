@@ -31,6 +31,10 @@ public class KeycloakUserService {
     @Value("${keycloak.realm}")
     private String realm;
 
+    public String createUser(String username, String email, String firstName, String lastName) {
+        return createUser(username, email, firstName, lastName, null, false, false);
+    }
+
     public String createUser(
             String username,
             String email,
@@ -69,6 +73,10 @@ public class KeycloakUserService {
             }
             return extractCreatedUserId(response);
         }
+    }
+
+    public void sendExecuteActionsEmail(String userId, List<String> actions, int lifespanSeconds) {
+        users().get(userId).executeActionsEmail(null, null, lifespanSeconds, actions);
     }
 
     public void assignRealmRoles(String userId, String... roleNames) {

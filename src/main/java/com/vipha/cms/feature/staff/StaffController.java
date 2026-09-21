@@ -19,4 +19,10 @@ public class StaffController {
     public StaffResponse create(@Valid @RequestBody CreateStaffRequest request) {
         return staffService.create(request);
     }
+
+    @PostMapping("/{id}/reset-password")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void resetPassword(@PathVariable("id") String userId) {
+        staffService.triggerPasswordReset(userId);
+    }
 }

@@ -1,4 +1,18 @@
 package com.vipha.cms.feature.appointment.dto;
 
-public record CreateAppointmentRequest() {
-}
+import jakarta.validation.constraints.FutureOrPresent;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
+
+import java.time.LocalDate;
+import java.time.LocalTime;
+import java.util.UUID;
+
+public record CreateAppointmentRequest(
+        @NotNull UUID patientId,
+        @NotNull String doctorId,
+        Long departmentId,
+        @NotNull @FutureOrPresent LocalDate appointmentDate,
+        @NotNull LocalTime appointmentTime,
+        @Size(max = 500) String reason
+) {}
