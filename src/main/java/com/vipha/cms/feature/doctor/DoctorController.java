@@ -7,13 +7,9 @@ import com.vipha.cms.feature.doctor.dto.SetScheduleRequest;
 import com.vipha.cms.feature.doctor.dto.SetSpecialtiesRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
@@ -23,6 +19,13 @@ import java.util.List;
 public class DoctorController {
 
     private final DoctorService doctorService;
+
+    @GetMapping
+    public Page<DoctorResponse> getAll(@RequestParam(required = false, defaultValue = "0") int pageNumber,
+                                       @RequestParam(required = false,defaultValue = "10") int pageSize) {
+
+        return doctorService.findAll(pageNumber, pageSize);
+    }
 
     @GetMapping("/{id}")
     public DoctorResponse get(@PathVariable("id") String userId) {

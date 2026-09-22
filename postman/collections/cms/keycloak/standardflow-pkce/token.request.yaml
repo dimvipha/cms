@@ -1,0 +1,44 @@
+$kind: http-request
+url: http://localhost:1201/realms/cms/protocol/openid-connect/token
+method: POST
+body:
+  type: urlencoded
+  content:
+    - key: client_id
+      value: cms-app
+      disabled: false
+    - key: redirect_uri
+      value: https://www.keycloak.org/app/
+      disabled: false
+    - key: client_secret
+      value: zkNmKibygoXCKNDeRlNAU0sQih4NGRfPHHpCoX28xDRFhbmFPihdGl6zDSUOMo7RcWvNXBAPCyWtpJsEvTGbEo
+      disabled: false
+    - key: grant_type
+      value: authorization_code
+      disabled: false
+    - key: code
+      value: a97e6bb6-864d-972b-089e-ea5c72728915.ox7aSjXyk8CNhs2PcGT3eBtL.0443f847-b6dc-4362-81c6-4e3690a181a8
+      disabled: false
+    - key: code_verifier
+      value: i88jLfrdeXxvYvi_bfFc7qtOpBvk_yjAAENKLpAtYNGV_DGEk4b326o_9UffIZAW32roJLNODNyOse8Ha0UI1OvKsnXm49AOoR4S27s2KDO29FZYdKhPZAMXPfifM9nk
+      disabled: false
+    - key: refresh_token
+      value: ""
+      disabled: true
+scripts:
+  - type: afterResponse
+    code: |-
+      const jsonData = pm.response.json();
+
+      if (jsonData.access_token) {
+          pm.environment.set("access_token", jsonData.access_token);
+          console.log("✅ access_token saved to environment");
+      }
+
+      if (jsonData.refresh_token) {
+          pm.environment.set("refresh_token", jsonData.refresh_token);
+          console.log("✅ refresh_token saved to environment");
+      }
+    language: text/javascript
+settings: {}
+order: 2000

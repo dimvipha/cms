@@ -1,0 +1,9 @@
+workspace:
+  id: d9122168-3ca7-4e06-899a-c5f3e733cf92
+cloudResources:
+  collections:
+    ../postman/collections/cms: 58419997-8f9476e0-2d18-4245-a8b1-e43052742cb6
+  environments:
+    ../postman/environments/patient_token.environment.yaml: 58419997-03a2e196-360d-4207-b765-c8ae0ec7c236
+  globals:
+    ../postman/globals/workspace.globals.yaml: 0dd1dc78-e446-4257-8e5d-a40f34d92d47

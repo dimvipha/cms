@@ -1,0 +1,10 @@
+$kind: http-request
+url: http://localhost:1201/realms/cms/protocol/openid-connect/auth?client_id=cms-app&response_type=code&code_challenge=kWr-AgIimDk-Dy4oX93pCWTC0zcYj3sW5zmbKpITCxw&code_challenge_method=S256
+method: GET
+queryParams:
+  client_id: cms-app
+  response_type: code
+  code_challenge: kWr-AgIimDk-Dy4oX93pCWTC0zcYj3sW5zmbKpITCxw
+  code_challenge_method: S256
+settings: {}
+order: 1000

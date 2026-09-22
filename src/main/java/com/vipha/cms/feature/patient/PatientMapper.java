@@ -14,9 +14,22 @@ public interface PatientMapper {
 
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "mrn", ignore = true)
+    @Mapping(target = "keycloakId", ignore = true)
     @Mapping(target = "active", ignore = true)
+    @Mapping(target = "createdAt", ignore = true)
+    @Mapping(target = "updatedAt", ignore = true)
+    @Mapping(target = "createdBy", ignore = true)
+    @Mapping(target = "updatedBy", ignore = true)
     Patient toEntity(PatientCreateRequest request);
 
     @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
+    @Mapping(target = "id", ignore = true)
+    @Mapping(target = "mrn", ignore = true)
+    @Mapping(target = "keycloakId", ignore = true)
+    @Mapping(target = "active", ignore = true)
+    @Mapping(target = "createdAt", ignore = true)
+    @Mapping(target = "updatedAt", ignore = true)
+    @Mapping(target = "createdBy", ignore = true)
+    @Mapping(target = "updatedBy", ignore = true)
     void updateEntity(PatientUpdateRequest request, @MappingTarget Patient patient);
 }

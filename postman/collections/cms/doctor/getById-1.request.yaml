@@ -1,0 +1,6 @@
+$kind: http-request
+name: getById
+url: http://localhost:1300/api/v1/doctors/{id}
+method: GET
+settings: {}
+order: 2138

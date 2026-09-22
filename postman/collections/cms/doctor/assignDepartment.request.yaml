@@ -1,0 +1,10 @@
+$kind: http-request
+url: http://localhost:1300/api/v1/doctors/{id}/department
+method: PUT
+body:
+  type: json
+  content: "{\r\n  \"departmentId\": 0\r\n}"
+auth:
+  type: bearer
+settings: {}
+order: 6000

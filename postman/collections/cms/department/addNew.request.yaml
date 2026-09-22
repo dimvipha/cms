@@ -1,0 +1,16 @@
+$kind: http-request
+url: http://localhost:1300/api/v1/departments
+method: POST
+body:
+  type: json
+  content: "{\r
+
+    \  \"name\": \"string\",\r
+
+    \  \"description\": \"string\"\r
+
+    }"
+auth:
+  type: bearer
+settings: {}
+order: 3000

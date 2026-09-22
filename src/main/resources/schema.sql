@@ -1,0 +1,1 @@
+CREATE SEQUENCE IF NOT EXISTS patient_mrn_seq START 1;

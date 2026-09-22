@@ -2,7 +2,9 @@ package com.vipha.cms.feature.patient;
 
 import com.vipha.cms.common.BaseEntity;
 import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.hibernate.annotations.SQLRestriction;
 
@@ -12,11 +14,16 @@ import java.time.LocalDate;
 @Table(name = "patient")
 @Getter
 @Setter
+@AllArgsConstructor
+@NoArgsConstructor
 @SQLRestriction("active = true")
 public class Patient extends BaseEntity {
 
     @Column(nullable = false, unique = true, updatable = false)
     private String mrn;
+
+    @Column(unique = true, updatable = false)
+    private String keycloakId;
 
     @Column(nullable = false)
     private String firstName;

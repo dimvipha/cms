@@ -9,6 +9,10 @@ import com.vipha.cms.feature.doctor.dto.ScheduleEntryDto;
 import com.vipha.cms.feature.doctor.dto.SetScheduleRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,6 +32,7 @@ public class DoctorServiceImpl implements DoctorService {
 
     private final DoctorRepository doctorRepository;
     private final DepartmentService departmentService;
+
 
     @Override
     public void createDoctorProfile(String userId) {
@@ -106,6 +111,14 @@ public class DoctorServiceImpl implements DoctorService {
             doctor.getSchedules().add(s);
         }
         return getSchedule(userId);
+    }
+
+    @Transactional(readOnly = true)
+    @Override
+    public Page<DoctorResponse> findAll(int pageNumber, int pageSize) {
+        Pageable pageable = PageRequest.of(pageNumber, pageSize);
+
+        return doctorRepository.findAll(pageable).map(this::toResponse);
     }
 
     private Doctor getDoctor(String userId) {

@@ -1,0 +1,5 @@
+name: patient_token
+color: 120
+values:
+  - key: pToken
+    value: ""

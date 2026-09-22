@@ -52,30 +52,36 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/staff/**").hasAuthority(Roles.ADMIN)
 
                         // Departments
-                        .requestMatchers(HttpMethod.GET,    "/api/v1/departments/**").authenticated()
-                        .requestMatchers(HttpMethod.POST,   "/api/v1/departments/**").hasAuthority(Roles.ADMIN)
-                        .requestMatchers(HttpMethod.PUT,    "/api/v1/departments/**").hasAuthority(Roles.ADMIN)
-                        .requestMatchers(HttpMethod.DELETE, "/api/v1/departments/**").hasAuthority(Roles.ADMIN)
+                        .requestMatchers(HttpMethod.GET,    "/api/v1/departments/**").hasAuthority("department:read")
+                        .requestMatchers(HttpMethod.POST,   "/api/v1/departments/**").hasAuthority("department:write")
+                        .requestMatchers(HttpMethod.PUT,    "/api/v1/departments/**").hasAuthority("department:update")
+                        .requestMatchers(HttpMethod.DELETE, "/api/v1/departments/**").hasAuthority("department:delete")
 
                         // Doctors
-                        .requestMatchers(HttpMethod.GET,    "/api/v1/doctors/**").authenticated()
-                        .requestMatchers(HttpMethod.POST,   "/api/v1/doctors/**").hasAuthority(Roles.ADMIN)
-                        .requestMatchers(HttpMethod.PUT,    "/api/v1/doctors/**").hasAuthority(Roles.ADMIN)
-                        .requestMatchers(HttpMethod.DELETE, "/api/v1/doctors/**").hasAuthority(Roles.ADMIN)
+                        .requestMatchers(HttpMethod.GET,    "/api/v1/doctors/**").hasAuthority("doctor:read")
+                        .requestMatchers(HttpMethod.POST,   "/api/v1/doctors/**").hasAuthority("doctor:write")
+                        .requestMatchers(HttpMethod.PUT,    "/api/v1/doctors/**").hasAuthority("doctor:update")
+                        .requestMatchers(HttpMethod.DELETE, "/api/v1/doctors/**").hasAuthority("doctor:delete")
 
                         // Patients
                         .requestMatchers(HttpMethod.GET,    "/api/v1/patients/**")
-                        .hasAnyAuthority(Roles.ADMIN, Roles.DOCTOR, Roles.NURSE, Roles.RECEPTIONIST)
+                        .hasAnyAuthority("patient:read", "patient:read-all")
                         .requestMatchers(HttpMethod.POST,   "/api/v1/patients/**")
-                        .hasAnyAuthority(Roles.ADMIN, Roles.NURSE, Roles.RECEPTIONIST)
+                        .hasAnyAuthority("patient:write", "patient:write-all")
                         .requestMatchers(HttpMethod.PUT,    "/api/v1/patients/**")
-                        .hasAnyAuthority(Roles.ADMIN, Roles.NURSE, Roles.RECEPTIONIST)
+                        .hasAnyAuthority("patient:update", "patient:update-all")
                         .requestMatchers(HttpMethod.DELETE, "/api/v1/patients/**")
                         .hasAuthority(Roles.ADMIN)
 
                         // Own profile
                         .requestMatchers(HttpMethod.GET, "/api/v1/user-profiles/all").hasAuthority(Roles.ADMIN)
                         .requestMatchers("/api/v1/user-profiles/**").authenticated()
+
+
+                        // Appointments (patient-owned)
+                        .requestMatchers(HttpMethod.GET, "/api/v1/appointments/**")
+                        .hasAuthority("appointment:read")
+                        .requestMatchers(HttpMethod.POST, "/api/v1/appointments/**").hasAuthority("appointment:write")
 
                         .anyRequest().authenticated())
 

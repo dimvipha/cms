@@ -1,0 +1,18 @@
+$kind: http-request
+url: http://localhost:1300/api/v1/appointments/{id}
+method: PATCH
+body:
+  type: json
+  content: "{\r
+
+    \  \"appointmentDate\": \"2026-09-21\",\r
+
+    \  \"appointmentTime\": \"string\",\r
+
+    \  \"reason\": \"string\"\r
+
+    }"
+auth:
+  type: bearer
+settings: {}
+order: 6000

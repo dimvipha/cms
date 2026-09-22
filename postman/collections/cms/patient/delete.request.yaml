@@ -1,0 +1,7 @@
+$kind: http-request
+url: http://localhost:1300/api/v1/patients?id=3fa85f64-5717-4562-b3fc-2c963f66afa6
+method: DELETE
+queryParams:
+  id: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+settings: {}
+order: 4000

@@ -1,0 +1,7 @@
+$kind: http-request
+url: http://localhost:1300/api/v1/appointments/{id}
+method: DELETE
+auth:
+  type: bearer
+settings: {}
+order: 5000

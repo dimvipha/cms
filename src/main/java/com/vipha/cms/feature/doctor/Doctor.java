@@ -14,18 +14,17 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
+import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 @Setter
 @Getter
 @NoArgsConstructor
+@AllArgsConstructor
 @Entity
 @Table(name = "doctor")
 public class Doctor {
@@ -50,4 +49,5 @@ public class Doctor {
 
     @OneToMany(mappedBy = "doctor", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<DoctorSchedule> schedules = new ArrayList<>();
+
 }

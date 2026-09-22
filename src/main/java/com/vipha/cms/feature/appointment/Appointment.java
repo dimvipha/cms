@@ -5,7 +5,9 @@ import com.vipha.cms.feature.department.Department;
 import com.vipha.cms.feature.doctor.Doctor;
 import com.vipha.cms.feature.patient.Patient;
 import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.time.LocalDate;
@@ -15,6 +17,8 @@ import java.time.LocalTime;
 @Table(name = "appointment")
 @Getter
 @Setter
+@NoArgsConstructor
+@AllArgsConstructor
 public class Appointment extends BaseEntity {
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)

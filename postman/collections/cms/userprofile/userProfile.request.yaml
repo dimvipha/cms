@@ -1,0 +1,30 @@
+$kind: http-request
+url: http://localhost:1333/api/v1/user-profiles
+method: PATCH
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: "{\r
+
+    \    \"fistName\": \"not null \",\r
+
+    \    \"lastName\": \"customer6update2\",\r
+
+    \    \"gender\": \"female\",\r
+
+    \    \"biography\": \"None of your business\",\r
+
+    \    \"profilePicture\": \"pic\",\r
+
+    \    \"facebookProfile\": \"facebookProfile\",\r
+
+    \    \"telegramProfile\": \"telegramProfile\"\r
+
+    }"
+auth:
+  type: bearer
+  credentials:
+    token: "{{supabase_service_role_api_key_0z1a}}eyJleHAiOjE3ODc1NTcxMjYsImlhdCI6MTc4NzQ3MDcyNiwiYXV0aF90aW1lIjoxNzg3NDY5ODYwLCJqdGkiOiJvbnJ0YWM6MWExOTU3NTctNDNlYy01ZjQxLTZjMmUtZTJiZTc1NTg4MjU5IiwiaXNzIjoiaHR0cDovL2xvY2FsaG9zdDoxNDAwL3JlYWxtcy9lY29tbWVyY2UiLCJhdWQiOiJhY2NvdW50Iiwic3ViIjoiYjkyODY4YzItODA4My00ZjAxLTg0NTItMmQ1ZTc2MjUwNTY4IiwidHlwIjoiQmVhcmVyIiwiYXpwIjoiZWNvbW1lcmNlLWFwcCIsInNpZCI6IlJmVU9vTW9zbnNscVVkQVNvMXU2Y2dOYiIsImFjciI6IjAiLCJyZWFsbV9hY2Nlc3MiOnsicm9sZXMiOlsib3JkZXI6d3JpdGUiLCJkZWZhdWx0LXJvbGVzLWVjb21tZXJjZSIsIm9yZGVyOmRlbGV0ZSIsImNhdGVncm9yeTpyZWFkIiwib2ZmbGluZV9hY2Nlc3MiLCJvcmRlcjp1cGRhdGUiLCJ0YWc6cmVhZCIsIkNVU1RPTUVSIiwib3JkZXI6cmVhZCIsInVtYV9hdXRob3JpemF0aW9uIiwiVVNFUiIsInByb2R1Y3Q6cmVhZCJdfSwicmVzb3VyY2VfYWNjZXNzIjp7ImFjY291bnQiOnsicm9sZXMiOlsibWFuYWdlLWFjY291bnQiLCJtYW5hZ2UtYWNjb3VudC1saW5rcyIsInZpZXctcHJvZmlsZSJdfX0sInNjb3BlIjoicHJvZmlsZSBlbWFpbCIsImVtYWlsX3ZlcmlmaWVkIjp0cnVlLCJuYW1lIjoiY3VzdG9tZXI2IGN1c3RvbWVyNmxhc3RuYW1lIiwicHJlZmVycmVkX3VzZXJuYW1lIjoiY3VzdG9tZXI2QGdtYWlsLmNvbSIsImdpdmVuX25hbWUiOiJjdXN0b21lcjYiLCJmYW1pbHlfbmFtZSI6ImN1c3RvbWVyNmxhc3RuYW1lIiwiZW1haWwiOiJjdXN0b21lcjZAZ21haWwuY29tIn0.PscrTC9x-a4qOklFHXPIUWmsayo_Svc7H0Yd4X1aqF3Vtr0ciY5q-lkQDrmzhBuWFeXywcW6n-iq5WOvlLKqfMjn-Cb61wlLQHhYbUvlZVnN8Py5fOryIXsydX-b9yUHW2XYqI7cgCx2DWzbabdz0zG-ORHsrupX42XiYZNLvVS2HXXlyet5N8FKHmrFC3BFBKdfB5XNFPF67WWkP3kLrqSfk-tDMDZqvku-yBDQLwQo2oBvPyCyAH7MPhsNy7ZhgECoQyi1YTkosowI_KLrJ2G8dDhMtRxUwvR0yDrCUUwEseZ7BOkvMIfpJsbai7-gn5EvBC8OOr3vFPhx1SyHEg"
+settings: {}
+order: 3000

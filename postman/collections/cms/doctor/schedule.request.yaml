@@ -1,0 +1,26 @@
+$kind: http-request
+url: http://localhost:1300/api/v1/doctors/{id}/schedule
+method: PUT
+body:
+  type: json
+  content: "{\r
+
+    \  \"entries\": [\r
+
+    \    {\r
+
+    \      \"dayOfWeek\": \"MONDAY\",\r
+
+    \      \"startTime\": \"string\",\r
+
+    \      \"endTime\": \"string\"\r
+
+    \    }\r
+
+    \  ]\r
+
+    }"
+auth:
+  type: bearer
+settings: {}
+order: 7000
