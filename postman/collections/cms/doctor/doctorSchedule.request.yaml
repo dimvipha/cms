@@ -1,5 +1,0 @@
-$kind: http-request
-url: http://localhost:1300/api/v1/doctors/{id}
-method: GET
-settings: {}
-order: 3000

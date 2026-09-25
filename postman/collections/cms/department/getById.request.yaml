@@ -1,7 +1,0 @@
-$kind: http-request
-url: http://localhost:1300/api/v1/departments
-method: GET
-auth:
-  type: bearer
-settings: {}
-order: 2000
