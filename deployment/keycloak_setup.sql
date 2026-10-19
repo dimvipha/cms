@@ -8,7 +8,7 @@
 --    docker exec -i cms-db psql -U cms_user -d keycloak_cms_db -f /dev/stdin < deployment/keycloak_setup.sql
 -- ============================================================
 
-\c keycloak_cms_db
+\c keycloak_clinic_db
 
 -- ─── Variables ────────────────────────────────────────────────────────────────
 -- cms realm id: 5c1689a9-8e98-42b6-852f-fe7ffdb2412b

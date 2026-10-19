@@ -36,7 +36,7 @@ services:
 
     environment:
       KC_DB: postgres
-      KC_DB_URL: jdbc:postgresql://clinic-db:5432/keycloak_cms_db
+      KC_DB_URL: jdbc:postgresql://clinic-db:5432/keycloak_clinic_db
       KC_DB_USERNAME: ${POSTGRES_USERNAME}
       KC_DB_PASSWORD: ${POSTGRES_PASSWORD}
 
