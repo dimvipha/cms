@@ -6,6 +6,7 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.Instant;
 
 @Entity
@@ -36,4 +37,13 @@ public class VitalSign extends BaseEntity {
     private BigDecimal heightCm;
 
     private Integer oxygenSaturation;
+
+    /** kg/m², one decimal; null unless both weight and height were recorded. */
+    public BigDecimal getBmi() {
+        if (weightKg == null || heightCm == null || heightCm.signum() <= 0) {
+            return null;
+        }
+        BigDecimal heightM = heightCm.movePointLeft(2);
+        return weightKg.divide(heightM.multiply(heightM), 1, RoundingMode.HALF_UP);
+    }
 }

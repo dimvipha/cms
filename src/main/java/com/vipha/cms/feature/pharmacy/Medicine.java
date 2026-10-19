@@ -4,6 +4,7 @@ import com.vipha.cms.common.BaseEntity;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
+import org.hibernate.annotations.BatchSize;
 import org.hibernate.annotations.SQLRestriction;
 
 import java.math.BigDecimal;
@@ -15,6 +16,7 @@ import java.util.List;
 @Getter
 @Setter
 @SQLRestriction("active = true")
+@BatchSize(size = 50) // prescription lists load item medicines in one round trip
 public class Medicine extends BaseEntity {
 
     @Column(nullable = false, unique = true, length = 50)

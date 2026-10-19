@@ -613,20 +613,35 @@ All endpoints are prefixed `/api/v1` and require a bearer token except `/actuato
 | `GET` | `/patients?search=&page=&size=` | `patient:read` |
 | `POST` | `/patients` | `patient:write` |
 | `GET` | `/patients/{id}` | `patient:read` |
-| `GET` | `/patients/{id}/timeline` | `visit:read` |
 | `GET` | `/doctors/{id}/availability?date=` | `appointment:read` |
 | `POST` | `/appointments` | `appointment:write` |
 | `PATCH` | `/appointments/{id}/check-in` | `appointment:write` |
 | `PATCH` | `/appointments/{id}/cancel` | `appointment:cancel` |
-| `POST` | `/visits` | `visit:write` |
+| `POST` | `/visits` (from `appointmentId`, or walk-in `patientId`) | `visit:write` |
+| `GET` | `/visits?patientId=&doctorId=&status=&date=` | `visit:read` |
+| `GET` | `/visits/me?status=&date=` (calling doctor's queue) | `visit:read` |
+| `GET` | `/visits/{id}` (patient, vitals, diagnosis) | `visit:read` |
+| `PATCH` | `/visits/{id}` (complaint, ICD-10 code, diagnosis, notes) | `visit:write` |
+| `POST` | `/visits/{id}/start` · `/complete` · `/cancel` | `visit:write` |
 | `POST` | `/visits/{id}/vitals` | `vitals:write` |
-| `POST` | `/visits/{id}/prescription` | `prescription:write` |
+| `POST` | `/prescriptions` | `prescription:write` |
+| `GET` | `/prescriptions?visitId=&patientId=` | `prescription:read` |
+| `GET` | `/prescriptions/{id}` | `prescription:read` |
+| `PUT` · `DELETE` | `/prescriptions/{id}` | `prescription:write` |
+| `GET` | `/prescriptions/{id}/pdf` (printable, A4) | `prescription:read` |
+| `GET` | `/medicines?search=` · `/medicines/{id}` | `medicine:read` |
 | `POST` | `/visits/{id}/lab-orders` | `lab:order` |
 | `PATCH` | `/lab-orders/{id}/items/{itemId}/result` | `lab:result` |
 | `POST` | `/medicines/{id}/dispense` | `medicine:dispense` |
 | `GET` | `/medicines/alerts/low-stock` | `medicine:read` |
-| `POST` | `/invoices/from-visit/{visitId}` | `invoice:write` |
+| `GET` | `/invoices/billable-visits` (completed visits not yet billed) | `invoice:read` |
+| `POST` | `/invoices/from-visit/{visitId}` (draft from consultation, prescription, lab) | `invoice:write` |
+| `POST` | `/invoices` (manual draft) | `invoice:write` |
+| `GET` | `/invoices?patientId=&visitId=&status=` · `/invoices/{id}` | `invoice:read` |
+| `PUT` | `/invoices/{id}` (edit a draft's lines, tax, discount) | `invoice:write` |
+| `POST` | `/invoices/{id}/issue` · `/invoices/{id}/void` | `invoice:write` |
 | `POST` | `/invoices/{id}/payments` | `payment:record` |
+| `GET` | `/invoices/{id}/pdf` (invoice or receipt, A4) | `invoice:read` |
 | `GET` | `/reports/revenue?from=&to=` | `report:view` |
 
 Errors follow RFC 7807:

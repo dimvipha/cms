@@ -83,6 +83,27 @@ public class SecurityConfig {
                         .hasAuthority("appointment:read")
                         .requestMatchers(HttpMethod.POST, "/api/v1/appointments/**").hasAuthority("appointment:write")
 
+                        // Visits (consultations) — vitals rule must precede the general POST rule
+                        .requestMatchers(HttpMethod.GET,   "/api/v1/visits/**").hasAuthority("visit:read")
+                        .requestMatchers(HttpMethod.POST,  "/api/v1/visits/*/vitals").hasAuthority("vitals:write")
+                        .requestMatchers(HttpMethod.POST,  "/api/v1/visits/**").hasAuthority("visit:write")
+                        .requestMatchers(HttpMethod.PATCH, "/api/v1/visits/**").hasAuthority("visit:write")
+
+                        // Prescriptions
+                        .requestMatchers(HttpMethod.GET,    "/api/v1/prescriptions/**").hasAuthority("prescription:read")
+                        .requestMatchers(HttpMethod.POST,   "/api/v1/prescriptions/**").hasAuthority("prescription:write")
+                        .requestMatchers(HttpMethod.PUT,    "/api/v1/prescriptions/**").hasAuthority("prescription:write")
+                        .requestMatchers(HttpMethod.DELETE, "/api/v1/prescriptions/**").hasAuthority("prescription:write")
+
+                        // Medicine catalogue (read-only lookup for prescribing)
+                        .requestMatchers(HttpMethod.GET, "/api/v1/medicines/**").hasAuthority("medicine:read")
+
+                        // Billing — payment rule must precede the general POST rule
+                        .requestMatchers(HttpMethod.GET,  "/api/v1/invoices/**").hasAuthority("invoice:read")
+                        .requestMatchers(HttpMethod.POST, "/api/v1/invoices/*/payments").hasAuthority("payment:record")
+                        .requestMatchers(HttpMethod.POST, "/api/v1/invoices/**").hasAuthority("invoice:write")
+                        .requestMatchers(HttpMethod.PUT,  "/api/v1/invoices/**").hasAuthority("invoice:write")
+
                         .anyRequest().authenticated())
 
                 .oauth2ResourceServer(oauth2 ->

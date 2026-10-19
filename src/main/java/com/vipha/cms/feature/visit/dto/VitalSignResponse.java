@@ -8,6 +8,7 @@ public record VitalSignResponse(
         UUID id,
         UUID visitId,
         Instant recordedAt,
+        String recordedBy,
         Integer systolicBp,
         Integer diastolicBp,
         Integer pulseRate,
@@ -15,5 +16,6 @@ public record VitalSignResponse(
         BigDecimal temperatureCelsius,
         BigDecimal weightKg,
         BigDecimal heightCm,
+        BigDecimal bmi,
         Integer oxygenSaturation
 ) {}

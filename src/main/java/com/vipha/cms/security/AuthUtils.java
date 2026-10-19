@@ -37,4 +37,10 @@ public final class AuthUtils {
         return SecurityContextHolder.getContext().getAuthentication();
     }
 
+    public static boolean hasAuthority(String authority) {
+        Authentication auth = getAuth();
+        return auth != null && auth.getAuthorities().stream()
+                .anyMatch(a -> authority.equals(a.getAuthority()));
+    }
+
 }

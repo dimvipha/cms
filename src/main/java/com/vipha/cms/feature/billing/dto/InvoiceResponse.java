@@ -1,6 +1,7 @@
 package com.vipha.cms.feature.billing.dto;
 
 import com.vipha.cms.feature.billing.InvoiceStatus;
+import com.vipha.cms.feature.patient.dto.PatientSummaryResponse;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -10,7 +11,7 @@ import java.util.UUID;
 public record InvoiceResponse(
         UUID id,
         String invoiceNumber,
-        UUID patientId,
+        PatientSummaryResponse patient,
         UUID visitId,
         Instant issuedAt,
         BigDecimal subtotal,

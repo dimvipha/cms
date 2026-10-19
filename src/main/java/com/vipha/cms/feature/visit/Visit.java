@@ -36,6 +36,9 @@ public class Visit extends BaseEntity {
     @Column(length = 1000)
     private String chiefComplaint;
 
+    @Column(length = 10)
+    private String diagnosisCode; // ICD-10, e.g. J06.9
+
     @Column(columnDefinition = "TEXT")
     private String diagnosis;
 
@@ -47,5 +50,6 @@ public class Visit extends BaseEntity {
     private VisitStatus status = VisitStatus.OPEN;
 
     @OneToMany(mappedBy = "visit", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OrderBy("recordedAt ASC")
     private List<VitalSign> vitalSigns = new ArrayList<>();
 }

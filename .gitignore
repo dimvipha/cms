@@ -38,3 +38,8 @@ out/
 
 **/.env
 !**/.env.example
+
+
+CLAUDE.md
+CLAUDE.local.md
+.claude

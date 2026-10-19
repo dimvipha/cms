@@ -10,5 +10,5 @@ import java.util.UUID;
 public record CreatePrescriptionRequest(
         @NotNull UUID visitId,
         String notes,
-        @NotEmpty @Valid List<PrescriptionItemRequest> items
+        @NotEmpty List<@Valid PrescriptionItemRequest> items
 ) {}

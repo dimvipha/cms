@@ -1,5 +1,6 @@
 package com.vipha.cms.feature.visit.dto;
 
+import com.vipha.cms.feature.patient.dto.PatientSummaryResponse;
 import com.vipha.cms.feature.visit.VisitStatus;
 
 import java.time.Instant;
@@ -8,11 +9,12 @@ import java.util.UUID;
 
 public record VisitResponse(
         UUID id,
-        UUID patientId,
+        PatientSummaryResponse patient,
         String doctorId,
         UUID appointmentId,
         Instant visitDate,
         String chiefComplaint,
+        String diagnosisCode,
         String diagnosis,
         String notes,
         VisitStatus status,

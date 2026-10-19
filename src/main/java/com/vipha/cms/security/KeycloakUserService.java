@@ -1,6 +1,8 @@
 package com.vipha.cms.security;
 
 import com.vipha.cms.common.exception.BusinessRuleException;
+import jakarta.ws.rs.ProcessingException;
+import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.Response;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -15,11 +17,15 @@ import org.keycloak.representations.idm.UserRepresentation;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.net.URI;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @Service
 @RequiredArgsConstructor
@@ -101,6 +107,23 @@ public class KeycloakUserService {
 
     public void deleteUser(String userId) {
         users().delete(userId);
+    }
+
+    /**
+     * "First Last" for display on printed documents. Empty when the user is gone or
+     * Keycloak can't be reached, so a missing name never blocks printing.
+     */
+    public Optional<String> findFullName(String userId) {
+        try {
+            UserRepresentation user = users().get(userId).toRepresentation();
+            String fullName = Stream.of(user.getFirstName(), user.getLastName())
+                    .filter(StringUtils::hasText)
+                    .collect(Collectors.joining(" "));
+            return fullName.isEmpty() ? Optional.empty() : Optional.of(fullName);
+        } catch (WebApplicationException | ProcessingException ex) {
+            log.warn("Could not resolve name for user {}: {}", userId, ex.getMessage());
+            return Optional.empty();
+        }
     }
 
     private RealmResource realmResource() {

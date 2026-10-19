@@ -7,6 +7,7 @@ import com.vipha.cms.feature.visit.Visit;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
+import org.hibernate.annotations.BatchSize;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -18,8 +19,8 @@ import java.util.List;
 @Setter
 public class Prescription extends BaseEntity {
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "visit_id", nullable = false)
+    @OneToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "visit_id", nullable = false, unique = true)
     private Visit visit;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
@@ -37,5 +38,7 @@ public class Prescription extends BaseEntity {
     private String notes;
 
     @OneToMany(mappedBy = "prescription", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OrderBy("createdAt ASC")
+    @BatchSize(size = 50)
     private List<PrescriptionItem> items = new ArrayList<>();
 }

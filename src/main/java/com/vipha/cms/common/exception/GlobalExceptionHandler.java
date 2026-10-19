@@ -3,8 +3,10 @@ package com.vipha.cms.common.exception;
 import com.vipha.cms.common.dto.ErrorResponse;
 import com.vipha.cms.common.dto.FieldErrorDetail;
 import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -26,6 +28,23 @@ public class GlobalExceptionHandler {
                 .status(HttpStatus.UNAUTHORIZED)
                 .body(new ErrorResponse<>(
                         HttpStatus.UNAUTHORIZED.value(),
+                        false,
+                        ex.getMessage(),
+                        Instant.now(),
+                        null
+                ));
+    }
+
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ErrorResponse<Void>> handleAccessDenied(
+            AccessDeniedException ex,
+            HttpServletRequest request
+    ) {
+
+        return ResponseEntity
+                .status(HttpStatus.FORBIDDEN)
+                .body(new ErrorResponse<>(
+                        HttpStatus.FORBIDDEN.value(),
                         false,
                         ex.getMessage(),
                         Instant.now(),
@@ -62,6 +81,24 @@ public class GlobalExceptionHandler {
                         HttpStatus.BAD_REQUEST.value(),
                         false,
                         ex.getMessage(),
+                        Instant.now(),
+                        null
+                ));
+    }
+
+    /** A database constraint caught a duplicate the service check missed, e.g. two concurrent requests. */
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ErrorResponse<Void>> handleDataIntegrity(
+            DataIntegrityViolationException ex,
+            HttpServletRequest request
+    ) {
+
+        return ResponseEntity
+                .status(HttpStatus.CONFLICT)
+                .body(new ErrorResponse<>(
+                        HttpStatus.CONFLICT.value(),
+                        false,
+                        "The request conflicts with existing data",
                         Instant.now(),
                         null
                 ));

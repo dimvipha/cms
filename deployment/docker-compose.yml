@@ -3,14 +3,14 @@ networks:
     external: true
 
 volumes:
-  cms-vol:
-  keycloak-cms-db-vol:
+  clinic-vol:
+  keycloak-clinic-db-vol:
 
 services:
 
-  cms-db:
+  clinic-db:
     image: postgres:17.10
-    container_name: cms-db
+    container_name: clinic-db
     ports:
       - "1200:5432"
 
@@ -20,23 +20,23 @@ services:
       POSTGRES_DB: ${POSTGRES_DB}
 
     volumes:
-      - cms-vol:/var/lib/postgresql/data
+      - clinic-vol:/var/lib/postgresql/data
       - ./init_db:/docker-entrypoint-initdb.d
 
     networks:
-      - cms-net
+      - clinic-net
 
 
-  keycloak-cms-db:
+  keycloak-clinic-db:
     image: quay.io/keycloak/keycloak:latest
-    container_name: keycloak-cms-db
+    container_name: keycloak-clinic-db
     command: start-dev
     ports:
       - "1201:8080"
 
     environment:
       KC_DB: postgres
-      KC_DB_URL: jdbc:postgresql://cms-db:5432/keycloak_cms_db
+      KC_DB_URL: jdbc:postgresql://clinic-db:5432/keycloak_cms_db
       KC_DB_USERNAME: ${POSTGRES_USERNAME}
       KC_DB_PASSWORD: ${POSTGRES_PASSWORD}
 
@@ -53,14 +53,14 @@ services:
       JAVA_OPTS_APPEND: "-Xms512m -Xmx2048m"
 
     volumes:
-      - keycloak-cms-db-vol:/opt/keycloak/data
+      - keycloak-clinic-db-vol:/opt/keycloak/data
       - ./keycloak/themes:/opt/keycloak/themes
       - ./keycloak/providers:/opt/keycloak/providers
 
     depends_on:
-      - cms-db
+      - clinic-db
 
     networks:
-      - cms-net
+      - clinic-net
 
     restart: unless-stopped
