@@ -10,8 +10,11 @@ import java.util.UUID;
 public record AppointmentResponse(
         UUID id,
         UUID patientId,
+        String patientName,
         String doctorId,
+        String doctorName,
         Long departmentId,
+        String departmentName,
         LocalDate appointmentDate,
         LocalTime appointmentTime,
         String reason,

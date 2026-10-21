@@ -6,9 +6,11 @@ import com.vipha.cms.feature.appointment.dto.UpdateAppointmentRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
@@ -20,37 +22,52 @@ public class AppointmentController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public void createNewAppointment(@Valid @RequestBody CreateAppointmentRequest request) {
-        appointmentService.createAppointment(request);
+    public AppointmentResponse create(@Valid @RequestBody CreateAppointmentRequest request) {
+        return appointmentService.create(request);
     }
 
-
-   @GetMapping("/{id}")
-    public AppointmentResponse getAppointmentById(@PathVariable UUID id){
-        return appointmentService.getAppointmentById(id);
-
-   }
+    /** Front desk sees every appointment; patients and doctors only their own. */
     @GetMapping
-    public Page<AppointmentResponse> getMyAppointments(@RequestParam(required = false, defaultValue = "0") int pageNumber,
-                                                       @RequestParam(required = false, defaultValue = "10") int pageSize) {
-        return appointmentService.getMyAppointments(pageNumber, pageSize);
+    public Page<AppointmentResponse> findAll(
+            @RequestParam(required = false) UUID patientId,
+            @RequestParam(required = false) String doctorId,
+            @RequestParam(required = false) AppointmentStatus status,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+            @RequestParam(required = false, defaultValue = "0") int pageNumber,
+            @RequestParam(required = false, defaultValue = "10") int pageSize) {
+        return appointmentService.findAll(patientId, doctorId, status, date, pageNumber, pageSize);
     }
-   @GetMapping("/me")
-   public List<AppointmentResponse> getMyAppointmentsList(){
-        return appointmentService.getMyAppointmentsList();
-   }
 
-   @PutMapping("/{id}")
-   @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void cancelAppointment(@PathVariable UUID id){
-        appointmentService.cancelAppointment(id);
-   }
+    /** The caller's own appointments, e.g. {@code ?date=2026-10-26} for a doctor's day. */
+    @GetMapping("/me")
+    public List<AppointmentResponse> findMine(
+            @RequestParam(required = false) AppointmentStatus status,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+        return appointmentService.findMine(status, date);
+    }
 
-   @PatchMapping("/{id}/me")
-   @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void updateAppointment(@PathVariable UUID id, @Valid @RequestBody UpdateAppointmentRequest request){
-        appointmentService.updateAppointment(id, request);
-   }
+    @GetMapping("/{id}")
+    public AppointmentResponse get(@PathVariable UUID id) {
+        return appointmentService.get(id);
+    }
 
+    @PatchMapping("/{id}")
+    public AppointmentResponse update(@PathVariable UUID id, @Valid @RequestBody UpdateAppointmentRequest request) {
+        return appointmentService.update(id, request);
+    }
 
+    @PostMapping("/{id}/cancel")
+    public AppointmentResponse cancel(@PathVariable UUID id) {
+        return appointmentService.cancel(id);
+    }
+
+    @PostMapping("/{id}/check-in")
+    public AppointmentResponse checkIn(@PathVariable UUID id) {
+        return appointmentService.checkIn(id);
+    }
+
+    @PostMapping("/{id}/no-show")
+    public AppointmentResponse markNoShow(@PathVariable UUID id) {
+        return appointmentService.markNoShow(id);
+    }
 }

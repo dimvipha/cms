@@ -1,6 +1,7 @@
 package com.vipha.cms.feature.appointment;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -10,7 +11,7 @@ import java.util.List;
 import java.util.UUID;
 
 public interface AppointmentRepository
-        extends JpaRepository<Appointment, UUID> {
+        extends JpaRepository<Appointment, UUID>, JpaSpecificationExecutor<Appointment> {
 
     @Query("select a.appointmentTime from Appointment a " +
             "where a.doctor.userId = :doctorUserId " +
