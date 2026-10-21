@@ -11,6 +11,7 @@ public record VisitSummaryResponse(
         UUID id,
         PatientSummaryResponse patient,
         String doctorId,
+        String doctorName,
         UUID appointmentId,
         Instant visitDate,
         String chiefComplaint,

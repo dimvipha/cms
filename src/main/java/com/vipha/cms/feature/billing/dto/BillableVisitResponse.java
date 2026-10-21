@@ -10,5 +10,6 @@ public record BillableVisitResponse(
         UUID visitId,
         PatientSummaryResponse patient,
         String doctorId,
+        String doctorName,
         Instant visitDate
 ) {}

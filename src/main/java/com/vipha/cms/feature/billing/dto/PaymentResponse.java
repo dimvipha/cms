@@ -13,5 +13,6 @@ public record PaymentResponse(
         PaymentMethod method,
         Instant paidAt,
         String reference,
-        String receivedBy
+        String receivedBy,
+        String receivedByName
 ) {}

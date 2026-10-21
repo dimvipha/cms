@@ -17,6 +17,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import java.math.BigDecimal;
 import java.util.Optional;
+import com.vipha.cms.security.UserNames;
 
 import static com.vipha.cms.feature.billing.BillingFixtures.invoice;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -29,6 +30,8 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class PaymentServiceImplTest {
 
+    @Mock UserNames userNames;
+
     @Mock InvoiceRepository invoiceRepository;
     @Mock PaymentRepository paymentRepository;
 
@@ -38,6 +41,7 @@ class PaymentServiceImplTest {
     void setUp() {
         InvoiceMapperImpl mapper = new InvoiceMapperImpl();
         ReflectionTestUtils.setField(mapper, "patientMapper", new PatientMapperImpl());
+        ReflectionTestUtils.setField(mapper, "userNames", userNames);
         service = new PaymentServiceImpl(invoiceRepository, paymentRepository, mapper);
         TestAuth.loginAs("cashier-1", "RECEPTIONIST");
     }

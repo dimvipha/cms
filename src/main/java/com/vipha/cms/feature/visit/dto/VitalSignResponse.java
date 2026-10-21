@@ -9,6 +9,7 @@ public record VitalSignResponse(
         UUID visitId,
         Instant recordedAt,
         String recordedBy,
+        String recordedByName,
         Integer systolicBp,
         Integer diastolicBp,
         Integer pulseRate,

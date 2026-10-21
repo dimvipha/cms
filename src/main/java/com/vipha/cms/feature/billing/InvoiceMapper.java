@@ -7,24 +7,31 @@ import com.vipha.cms.feature.billing.dto.InvoiceSummaryResponse;
 import com.vipha.cms.feature.billing.dto.PaymentResponse;
 import com.vipha.cms.feature.patient.PatientMapper;
 import com.vipha.cms.feature.visit.Visit;
+import com.vipha.cms.security.UserNames;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
+import org.springframework.beans.factory.annotation.Autowired;
 
 @Mapper(componentModel = "spring", uses = PatientMapper.class)
-public interface InvoiceMapper {
+public abstract class InvoiceMapper {
+
+    @Autowired
+    protected UserNames userNames;
 
     @Mapping(target = "visitId", source = "visit.id")
-    InvoiceResponse toResponse(Invoice invoice);
+    public abstract InvoiceResponse toResponse(Invoice invoice);
 
     @Mapping(target = "visitId", source = "visit.id")
-    InvoiceSummaryResponse toSummary(Invoice invoice);
+    public abstract InvoiceSummaryResponse toSummary(Invoice invoice);
 
-    InvoiceItemResponse toItemResponse(InvoiceItem item);
+    public abstract InvoiceItemResponse toItemResponse(InvoiceItem item);
 
     @Mapping(target = "invoiceId", source = "invoice.id")
-    PaymentResponse toPaymentResponse(Payment payment);
+    @Mapping(target = "receivedByName", expression = "java(userNames.fullName(payment.getReceivedBy()))")
+    public abstract PaymentResponse toPaymentResponse(Payment payment);
 
     @Mapping(target = "visitId", source = "id")
     @Mapping(target = "doctorId", source = "doctor.userId")
-    BillableVisitResponse toBillableVisit(Visit visit);
+    @Mapping(target = "doctorName", expression = "java(userNames.fullName(visit.getDoctor().getUserId()))")
+    public abstract BillableVisitResponse toBillableVisit(Visit visit);
 }

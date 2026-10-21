@@ -32,6 +32,7 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.Optional;
 import java.util.UUID;
+import com.vipha.cms.security.UserNames;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -46,6 +47,8 @@ class VisitServiceImplTest {
     private static final String DOCTOR_ID = "doctor-1";
     private static final String OTHER_DOCTOR_ID = "doctor-2";
 
+    @Mock UserNames userNames;
+
     @Mock VisitRepository visitRepository;
     @Mock VitalSignRepository vitalSignRepository;
     @Mock AppointmentRepository appointmentRepository;
@@ -58,6 +61,7 @@ class VisitServiceImplTest {
     void setUp() {
         VisitMapperImpl mapper = new VisitMapperImpl();
         ReflectionTestUtils.setField(mapper, "patientMapper", new PatientMapperImpl());
+        ReflectionTestUtils.setField(mapper, "userNames", userNames);
         service = new VisitServiceImpl(visitRepository, vitalSignRepository, appointmentRepository,
                 patientRepository, doctorRepository, mapper,
                 new ClinicProperties("Test Clinic", "", "", ZoneId.of("Asia/Bangkok")));

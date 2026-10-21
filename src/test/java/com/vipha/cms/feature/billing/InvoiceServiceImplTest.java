@@ -30,6 +30,7 @@ import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import com.vipha.cms.security.UserNames;
 
 import static com.vipha.cms.feature.billing.BillingFixtures.*;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -43,6 +44,8 @@ import static org.mockito.Mockito.when;
 class InvoiceServiceImplTest {
 
     private static final ZoneId BANGKOK = ZoneId.of("Asia/Bangkok");
+
+    @Mock UserNames userNames;
 
     @Mock InvoiceRepository invoiceRepository;
     @Mock VisitRepository visitRepository;
@@ -58,6 +61,7 @@ class InvoiceServiceImplTest {
     void setUp() {
         InvoiceMapperImpl mapper = new InvoiceMapperImpl();
         ReflectionTestUtils.setField(mapper, "patientMapper", new PatientMapperImpl());
+        ReflectionTestUtils.setField(mapper, "userNames", userNames);
         service = new InvoiceServiceImpl(invoiceRepository, visitRepository, patientRepository,
                 prescriptionRepository, labOrderRepository, mapper, receiptRenderer, keycloakUserService,
                 new BillingProperties("THB", new BigDecimal("250.00")),

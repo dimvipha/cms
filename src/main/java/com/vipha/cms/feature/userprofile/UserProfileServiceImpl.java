@@ -4,6 +4,7 @@ import com.vipha.cms.common.exception.ResourceNotFoundException;
 import com.vipha.cms.feature.userprofile.dto.PatchUserProfileRequest;
 import com.vipha.cms.feature.userprofile.dto.UserProfileResponse;
 import com.vipha.cms.security.AuthUtils;
+import com.vipha.cms.security.UserNames;
 import jakarta.ws.rs.NotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.keycloak.admin.client.Keycloak;
@@ -27,6 +28,7 @@ public class UserProfileServiceImpl implements UserProfileService {
     private final UserProfileRepository userProfileRepository;
     private final UserProfileMapper userProfileMapper;
     private final Keycloak keycloak;
+    private final UserNames userNames;
 
     @Value("${keycloak.realm}")
     private String realm;
@@ -69,6 +71,7 @@ public class UserProfileServiceImpl implements UserProfileService {
         updateKeycloakUser(keycloakUser, request);
 
         userResource.update(keycloakUser);
+        userNames.evict(userId);
 
         return userProfileMapper.toUserProfileResponse(
                 userProfile,

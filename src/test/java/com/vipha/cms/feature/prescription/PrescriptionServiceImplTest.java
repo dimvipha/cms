@@ -25,6 +25,8 @@ import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import com.vipha.cms.security.UserNames;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import static com.vipha.cms.feature.prescription.PrescriptionFixtures.medicine;
 import static com.vipha.cms.feature.prescription.PrescriptionFixtures.prescription;
@@ -41,6 +43,8 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class PrescriptionServiceImplTest {
 
+    @Mock UserNames userNames;
+
     @Mock PrescriptionRepository prescriptionRepository;
     @Mock MedicineRepository medicineRepository;
     @Mock VisitService visitService;
@@ -54,8 +58,10 @@ class PrescriptionServiceImplTest {
 
     @BeforeEach
     void setUp() {
+        PrescriptionMapperImpl mapper = new PrescriptionMapperImpl();
+        ReflectionTestUtils.setField(mapper, "userNames", userNames);
         service = new PrescriptionServiceImpl(prescriptionRepository, medicineRepository, visitService,
-                new PrescriptionMapperImpl(), pdfRenderer, keycloakUserService,
+                mapper, pdfRenderer, keycloakUserService,
                 new ClinicProperties("Test Clinic", "", "", ZoneId.of("Asia/Bangkok")));
     }
 

@@ -6,22 +6,30 @@ import com.vipha.cms.feature.visit.dto.UpdateVisitRequest;
 import com.vipha.cms.feature.visit.dto.VisitResponse;
 import com.vipha.cms.feature.visit.dto.VisitSummaryResponse;
 import com.vipha.cms.feature.visit.dto.VitalSignResponse;
+import com.vipha.cms.security.UserNames;
 import org.mapstruct.*;
+import org.springframework.beans.factory.annotation.Autowired;
 
 @Mapper(componentModel = "spring", uses = PatientMapper.class)
-public interface VisitMapper {
+public abstract class VisitMapper {
+
+    @Autowired
+    protected UserNames userNames;
 
     @Mapping(target = "doctorId", source = "doctor.userId")
+    @Mapping(target = "doctorName", expression = "java(userNames.fullName(visit.getDoctor().getUserId()))")
     @Mapping(target = "appointmentId", source = "appointment.id")
-    VisitResponse toResponse(Visit visit);
+    public abstract VisitResponse toResponse(Visit visit);
 
     @Mapping(target = "doctorId", source = "doctor.userId")
+    @Mapping(target = "doctorName", expression = "java(userNames.fullName(visit.getDoctor().getUserId()))")
     @Mapping(target = "appointmentId", source = "appointment.id")
-    VisitSummaryResponse toSummary(Visit visit);
+    public abstract VisitSummaryResponse toSummary(Visit visit);
 
     @Mapping(target = "visitId", source = "visit.id")
     @Mapping(target = "recordedBy", source = "createdBy")
-    VitalSignResponse toVitalSignResponse(VitalSign vitalSign);
+    @Mapping(target = "recordedByName", expression = "java(userNames.fullName(vitalSign.getCreatedBy()))")
+    public abstract VitalSignResponse toVitalSignResponse(VitalSign vitalSign);
 
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "createdAt", ignore = true)
@@ -30,7 +38,7 @@ public interface VisitMapper {
     @Mapping(target = "updatedBy", ignore = true)
     @Mapping(target = "visit", ignore = true)
     @Mapping(target = "recordedAt", ignore = true)
-    VitalSign toVitalSign(RecordVitalSignRequest request);
+    public abstract VitalSign toVitalSign(RecordVitalSignRequest request);
 
     @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
     @Mapping(target = "id", ignore = true)
@@ -45,5 +53,5 @@ public interface VisitMapper {
     @Mapping(target = "diagnosisCode", ignore = true)
     @Mapping(target = "status", ignore = true)
     @Mapping(target = "vitalSigns", ignore = true)
-    void updateEntity(UpdateVisitRequest request, @MappingTarget Visit visit);
+    public abstract void updateEntity(UpdateVisitRequest request, @MappingTarget Visit visit);
 }
