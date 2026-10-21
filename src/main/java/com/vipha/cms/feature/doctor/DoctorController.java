@@ -5,6 +5,7 @@ import com.vipha.cms.feature.doctor.dto.ScheduleEntryDto;
 import com.vipha.cms.feature.doctor.dto.SetDepartmentRequest;
 import com.vipha.cms.feature.doctor.dto.SetScheduleRequest;
 import com.vipha.cms.feature.doctor.dto.SetSpecialtiesRequest;
+import com.vipha.cms.security.AuthUtils;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -20,11 +21,21 @@ public class DoctorController {
 
     private final DoctorService doctorService;
 
+    /** e.g. {@code ?departmentId=6&active=true} for the doctors a patient can book. */
     @GetMapping
-    public Page<DoctorResponse> getAll(@RequestParam(required = false, defaultValue = "0") int pageNumber,
+    public Page<DoctorResponse> getAll(@RequestParam(required = false) Long departmentId,
+                                       @RequestParam(required = false) Specialty specialty,
+                                       @RequestParam(required = false) Boolean active,
+                                       @RequestParam(required = false, defaultValue = "0") int pageNumber,
                                        @RequestParam(required = false,defaultValue = "10") int pageSize) {
 
-        return doctorService.findAll(pageNumber, pageSize);
+        return doctorService.findAll(departmentId, specialty, active, pageNumber, pageSize);
+    }
+
+    /** The calling doctor's own profile. */
+    @GetMapping("/me")
+    public DoctorResponse getMine() {
+        return doctorService.get(AuthUtils.extractUserId());
     }
 
     @GetMapping("/{id}")

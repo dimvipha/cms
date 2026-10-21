@@ -6,7 +6,10 @@ import java.util.Set;
 
 public record DoctorResponse(
         String userId,
+        String firstName,
+        String lastName,
         boolean active,
         Long departmentId,
+        String departmentName,
         Set<Specialty> specialties
 ) {}

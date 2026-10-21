@@ -7,12 +7,18 @@ import com.vipha.cms.feature.department.DepartmentService;
 import com.vipha.cms.feature.doctor.dto.DoctorResponse;
 import com.vipha.cms.feature.doctor.dto.ScheduleEntryDto;
 import com.vipha.cms.feature.doctor.dto.SetScheduleRequest;
+import com.vipha.cms.security.AuthUtils;
+import com.vipha.cms.security.Permissions;
+import com.vipha.cms.security.PersonName;
+import com.vipha.cms.security.UserNames;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -32,6 +38,7 @@ public class DoctorServiceImpl implements DoctorService {
 
     private final DoctorRepository doctorRepository;
     private final DepartmentService departmentService;
+    private final UserNames userNames;
 
 
     @Override
@@ -98,6 +105,9 @@ public class DoctorServiceImpl implements DoctorService {
     @Override
     @Transactional
     public List<ScheduleEntryDto> setSchedule(String userId, SetScheduleRequest request) {
+        if (!AuthUtils.hasAuthority(Permissions.DOCTOR_WRITE) && !userId.equals(AuthUtils.extractUserId())) {
+            throw new AccessDeniedException("You can only change your own schedule");
+        }
         validateSchedule(request.entries());
 
         Doctor doctor = getDoctor(userId);
@@ -115,10 +125,17 @@ public class DoctorServiceImpl implements DoctorService {
 
     @Transactional(readOnly = true)
     @Override
-    public Page<DoctorResponse> findAll(int pageNumber, int pageSize) {
-        Pageable pageable = PageRequest.of(pageNumber, pageSize);
-
-        return doctorRepository.findAll(pageable).map(this::toResponse);
+    public Page<DoctorResponse> findAll(Long departmentId, Specialty specialty, Boolean active,
+                                        int pageNumber, int pageSize) {
+        Specification<Doctor> spec = Specification.allOf(
+                departmentId == null ? Specification.unrestricted()
+                        : (root, query, cb) -> cb.equal(root.get("department").get("id"), departmentId),
+                specialty == null ? Specification.unrestricted()
+                        : (root, query, cb) -> cb.isMember(specialty, root.<Set<Specialty>>get("specialties")),
+                active == null ? Specification.unrestricted()
+                        : (root, query, cb) -> cb.equal(root.get("active"), active));
+        Pageable pageable = PageRequest.of(pageNumber, pageSize, Sort.by("userId"));
+        return doctorRepository.findAll(spec, pageable).map(this::toResponse);
     }
 
     private Doctor getDoctor(String userId) {
@@ -127,10 +144,15 @@ public class DoctorServiceImpl implements DoctorService {
     }
 
     private DoctorResponse toResponse(Doctor doctor) {
+        PersonName name = userNames.find(doctor.getUserId()).orElse(new PersonName(null, null));
+        Department department = doctor.getDepartment();
         return new DoctorResponse(
                 doctor.getUserId(),
+                name.firstName(),
+                name.lastName(),
                 doctor.isActive(),
-                doctor.getDepartment() == null ? null : doctor.getDepartment().getId(),
+                department == null ? null : department.getId(),
+                department == null ? null : department.getName(),
                 new HashSet<>(doctor.getSpecialties())
         );
     }

@@ -26,5 +26,6 @@ public interface DoctorService {
 
     List<ScheduleEntryDto> setSchedule(String userId, SetScheduleRequest request);
 
-    Page<DoctorResponse> findAll(int pageNumber, int pageSize);
+    /** Each filter is optional, e.g. active doctors of one department for the booking screen. */
+    Page<DoctorResponse> findAll(Long departmentId, Specialty specialty, Boolean active, int pageNumber, int pageSize);
 }
