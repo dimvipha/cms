@@ -43,4 +43,13 @@ public final class AuthUtils {
                 .anyMatch(a -> authority.equals(a.getAuthority()));
     }
 
+    /** The login name from the token's preferred_username claim, or null when the token has none. */
+    public static String extractUsername() {
+        Authentication auth = getAuth();
+        if (auth instanceof JwtAuthenticationToken jwtAuth) {
+            return jwtAuth.getToken().getClaimAsString("preferred_username");
+        }
+        return null;
+    }
+
 }

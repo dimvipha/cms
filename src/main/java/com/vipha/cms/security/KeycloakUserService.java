@@ -1,6 +1,8 @@
 package com.vipha.cms.security;
 
+import com.vipha.cms.common.FrontendProperties;
 import com.vipha.cms.common.exception.BusinessRuleException;
+import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.ProcessingException;
 import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.Response;
@@ -23,9 +25,8 @@ import org.springframework.web.server.ResponseStatusException;
 import java.net.URI;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 @Service
 @RequiredArgsConstructor
@@ -33,6 +34,7 @@ import java.util.stream.Stream;
 public class KeycloakUserService {
 
     private final Keycloak keycloak;
+    private final FrontendProperties frontend;
 
     @Value("${keycloak.realm}")
     private String realm;
@@ -81,8 +83,34 @@ public class KeycloakUserService {
         }
     }
 
+    /** Emails the user a link to perform the actions; when done, Keycloak offers a link back to the frontend's login page. */
     public void sendExecuteActionsEmail(String userId, List<String> actions, int lifespanSeconds) {
-        users().get(userId).executeActionsEmail(null, null, lifespanSeconds, actions);
+        users().get(userId).executeActionsEmail(frontend.clientId(), frontend.loginUrl(), lifespanSeconds, actions);
+    }
+
+    /** The enabled user with exactly this email, if any. */
+    public Optional<String> findEnabledUserIdByEmail(String email) {
+        return users().searchByEmail(email, true).stream()
+                .filter(user -> Boolean.TRUE.equals(user.isEnabled()))
+                .map(UserRepresentation::getId)
+                .findFirst();
+    }
+
+    public String getUsername(String userId) {
+        return users().get(userId).toRepresentation().getUsername();
+    }
+
+    /** Sets a new permanent password; the realm's password policy may reject it. */
+    public void resetPassword(String userId, String password) {
+        CredentialRepresentation credential = new CredentialRepresentation();
+        credential.setType(CredentialRepresentation.PASSWORD);
+        credential.setValue(password);
+        credential.setTemporary(false);
+        try {
+            users().get(userId).resetPassword(credential);
+        } catch (BadRequestException ex) {
+            throw new BusinessRuleException("Password rejected: " + keycloakError(ex.getResponse()));
+        }
     }
 
     public void assignRealmRoles(String userId, String... roleNames) {
@@ -114,15 +142,28 @@ public class KeycloakUserService {
      * Keycloak can't be reached, so a missing name never blocks printing.
      */
     public Optional<String> findFullName(String userId) {
+        return findName(userId).map(PersonName::fullName);
+    }
+
+    /** Empty when the user is gone or Keycloak can't be reached, so a missing name never blocks a response. */
+    public Optional<PersonName> findName(String userId) {
         try {
             UserRepresentation user = users().get(userId).toRepresentation();
-            String fullName = Stream.of(user.getFirstName(), user.getLastName())
-                    .filter(StringUtils::hasText)
-                    .collect(Collectors.joining(" "));
-            return fullName.isEmpty() ? Optional.empty() : Optional.of(fullName);
+            PersonName name = new PersonName(user.getFirstName(), user.getLastName());
+            return name.fullName() == null ? Optional.empty() : Optional.of(name);
         } catch (WebApplicationException | ProcessingException ex) {
             log.warn("Could not resolve name for user {}: {}", userId, ex.getMessage());
             return Optional.empty();
+        }
+    }
+
+    /** Keycloak's error_description, e.g. "Invalid password: minimum length 8." */
+    private String keycloakError(Response response) {
+        try {
+            Object description = response.readEntity(Map.class).get("error_description");
+            return description != null ? description.toString() : "HTTP " + response.getStatus();
+        } catch (RuntimeException ex) {
+            return "HTTP " + response.getStatus();
         }
     }
 
