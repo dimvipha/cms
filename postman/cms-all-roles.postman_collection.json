@@ -2396,6 +2396,68 @@
               }
             }
           ]
+        },
+        {
+          "name": "Another doctor cannot read this patient's record",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/patients/{{patientId}}",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{otherDoctorToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('403 Forbidden', () => pm.response.to.have.status(403));",
+                  "pm.test('the patient is not in their care', () =>",
+                  "    pm.expect(pm.response.json().message).to.eql('You can only see patients in your care'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Another doctor cannot read this visit",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/visits/{{visitId}}",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{otherDoctorToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('403 Forbidden', () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ]
         }
       ],
       "auth": {

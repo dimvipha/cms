@@ -5,6 +5,7 @@ import com.vipha.cms.common.exception.BusinessRuleException;
 import com.vipha.cms.feature.appointment.Appointment;
 import com.vipha.cms.feature.appointment.AppointmentRepository;
 import com.vipha.cms.feature.appointment.AppointmentStatus;
+import com.vipha.cms.feature.care.CareScope;
 import com.vipha.cms.feature.doctor.Doctor;
 import com.vipha.cms.feature.doctor.DoctorRepository;
 import com.vipha.cms.feature.patient.Patient;
@@ -37,6 +38,7 @@ import com.vipha.cms.security.UserNames;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -54,6 +56,7 @@ class VisitServiceImplTest {
     @Mock AppointmentRepository appointmentRepository;
     @Mock PatientRepository patientRepository;
     @Mock DoctorRepository doctorRepository;
+    @Mock CareScope careScope;
 
     VisitServiceImpl service;
 
@@ -64,7 +67,7 @@ class VisitServiceImplTest {
         ReflectionTestUtils.setField(mapper, "userNames", userNames);
         service = new VisitServiceImpl(visitRepository, vitalSignRepository, appointmentRepository,
                 patientRepository, doctorRepository, mapper,
-                new ClinicProperties("Test Clinic", "", "", ZoneId.of("Asia/Bangkok")));
+                new ClinicProperties("Test Clinic", "", "", ZoneId.of("Asia/Bangkok")), careScope);
         TestAuth.loginAs(DOCTOR_ID, Roles.DOCTOR);
     }
 
@@ -335,6 +338,40 @@ class VisitServiceImplTest {
         TestAuth.loginAs("nurse-1", Roles.NURSE);
 
         assertThat(service.recordVitals(visit.getId(), reading(118, 76))).isNotNull();
+    }
+
+    // ── a doctor's own patients ─────────────────────────────────────────────
+
+    @Test
+    void get_refusesAPatientOutsideTheDoctorsCare() {
+        Visit visit = visit(VisitStatus.COMPLETED);
+        when(visitRepository.findById(visit.getId())).thenReturn(Optional.of(visit));
+        doThrow(new AccessDeniedException("You can only see patients in your care"))
+                .when(careScope).assertCovers(visit.getPatient().getId());
+
+        assertThatThrownBy(() -> service.get(visit.getId())).isInstanceOf(AccessDeniedException.class);
+    }
+
+    @Test
+    void get_letsADoctorReadAnotherDoctorsVisitOfTheirPatient() {
+        Visit visit = visit(VisitStatus.COMPLETED);
+        visit.setDoctor(doctor(OTHER_DOCTOR_ID));
+        when(visitRepository.findById(visit.getId())).thenReturn(Optional.of(visit));
+
+        assertThat(service.get(visit.getId())).isNotNull();
+        verify(careScope).assertCovers(visit.getPatient().getId());
+    }
+
+    @Test
+    void recordVitals_refusesAPatientOutsideTheDoctorsCare() {
+        Visit visit = visit(VisitStatus.OPEN);
+        when(visitRepository.findById(visit.getId())).thenReturn(Optional.of(visit));
+        doThrow(new AccessDeniedException("You can only see patients in your care"))
+                .when(careScope).assertCovers(visit.getPatient().getId());
+
+        assertThatThrownBy(() -> service.recordVitals(visit.getId(), reading(118, 76)))
+                .isInstanceOf(AccessDeniedException.class);
+        verify(vitalSignRepository, never()).save(any());
     }
 
     // ── fixtures ────────────────────────────────────────────────────────────

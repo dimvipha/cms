@@ -13,6 +13,9 @@ public interface VisitRepository extends JpaRepository<Visit, UUID>, JpaSpecific
 
     boolean existsByAppointmentId(UUID appointmentId);
 
+    /** Whether the doctor has seen the patient in a visit. */
+    boolean existsByDoctorUserIdAndPatientId(String doctorUserId, UUID patientId);
+
     @Override
     @EntityGraph(attributePaths = "patient")
     Page<Visit> findAll(Specification<Visit> spec, Pageable pageable);

@@ -6,6 +6,7 @@ import com.vipha.cms.common.exception.ResourceNotFoundException;
 import com.vipha.cms.feature.appointment.Appointment;
 import com.vipha.cms.feature.appointment.AppointmentRepository;
 import com.vipha.cms.feature.appointment.AppointmentStatus;
+import com.vipha.cms.feature.care.CareScope;
 import com.vipha.cms.feature.doctor.Doctor;
 import com.vipha.cms.feature.doctor.DoctorRepository;
 import com.vipha.cms.feature.patient.Patient;
@@ -52,6 +53,7 @@ public class VisitServiceImpl implements VisitService {
     private final DoctorRepository doctorRepository;
     private final VisitMapper visitMapper;
     private final ClinicProperties clinicProperties;
+    private final CareScope careScope;
 
     @Override
     public VisitResponse create(CreateVisitRequest request) {
@@ -76,7 +78,9 @@ public class VisitServiceImpl implements VisitService {
     @Override
     @Transactional(readOnly = true)
     public VisitResponse get(UUID id) {
-        return visitMapper.toResponse(getVisit(id));
+        Visit visit = getVisit(id);
+        careScope.assertCovers(visit.getPatient().getId());
+        return visitMapper.toResponse(visit);
     }
 
     @Override
@@ -87,7 +91,9 @@ public class VisitServiceImpl implements VisitService {
                 VisitSpecs.patient(patientId),
                 VisitSpecs.doctor(doctorId),
                 VisitSpecs.status(status),
-                VisitSpecs.onDate(date, clinicProperties.timeZone()));
+                VisitSpecs.onDate(date, clinicProperties.timeZone()),
+                // a doctor sees their own patients' visits, whoever the doctor was
+                careScope.narrow(root -> root.get("patient").get("id")));
         Pageable pageable = PageRequest.of(pageNumber, pageSize, Sort.by(Sort.Direction.DESC, "visitDate"));
         return visitRepository.findAll(spec, pageable).map(visitMapper::toSummary);
     }
@@ -147,6 +153,7 @@ public class VisitServiceImpl implements VisitService {
     @Override
     public VitalSignResponse recordVitals(UUID visitId, RecordVitalSignRequest request) {
         Visit visit = getVisit(visitId);
+        careScope.assertCovers(visit.getPatient().getId());
         if (visit.getStatus().isClosed()) {
             throw new BusinessRuleException("Cannot record vitals on a " + visit.getStatus() + " visit");
         }

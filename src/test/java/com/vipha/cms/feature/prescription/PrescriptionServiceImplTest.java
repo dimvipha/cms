@@ -4,6 +4,7 @@ import com.vipha.cms.common.ClinicProperties;
 import com.vipha.cms.common.dto.PdfFile;
 import com.vipha.cms.common.exception.BusinessRuleException;
 import com.vipha.cms.common.exception.ResourceNotFoundException;
+import com.vipha.cms.feature.care.CareScope;
 import com.vipha.cms.feature.pharmacy.Medicine;
 import com.vipha.cms.feature.pharmacy.MedicineRepository;
 import com.vipha.cms.feature.prescription.dto.CreatePrescriptionRequest;
@@ -50,6 +51,7 @@ class PrescriptionServiceImplTest {
     @Mock VisitService visitService;
     @Mock PrescriptionPdfRenderer pdfRenderer;
     @Mock KeycloakUserService keycloakUserService;
+    @Mock CareScope careScope;
 
     PrescriptionServiceImpl service;
 
@@ -62,7 +64,7 @@ class PrescriptionServiceImplTest {
         ReflectionTestUtils.setField(mapper, "userNames", userNames);
         service = new PrescriptionServiceImpl(prescriptionRepository, medicineRepository, visitService,
                 mapper, pdfRenderer, keycloakUserService,
-                new ClinicProperties("Test Clinic", "", "", ZoneId.of("Asia/Bangkok")));
+                new ClinicProperties("Test Clinic", "", "", ZoneId.of("Asia/Bangkok")), careScope);
     }
 
     @Test

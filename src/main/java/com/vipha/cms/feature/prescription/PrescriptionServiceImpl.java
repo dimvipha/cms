@@ -4,6 +4,7 @@ import com.vipha.cms.common.ClinicProperties;
 import com.vipha.cms.common.dto.PdfFile;
 import com.vipha.cms.common.exception.BusinessRuleException;
 import com.vipha.cms.common.exception.ResourceNotFoundException;
+import com.vipha.cms.feature.care.CareScope;
 import com.vipha.cms.feature.pharmacy.Medicine;
 import com.vipha.cms.feature.pharmacy.MedicineRepository;
 import com.vipha.cms.feature.prescription.dto.CreatePrescriptionRequest;
@@ -46,6 +47,7 @@ public class PrescriptionServiceImpl implements PrescriptionService {
     private final PrescriptionPdfRenderer pdfRenderer;
     private final KeycloakUserService keycloakUserService;
     private final ClinicProperties clinicProperties;
+    private final CareScope careScope;
 
     @Override
     public PrescriptionResponse create(CreatePrescriptionRequest request) {
@@ -68,7 +70,9 @@ public class PrescriptionServiceImpl implements PrescriptionService {
     @Override
     @Transactional(readOnly = true)
     public PrescriptionResponse get(UUID id) {
-        return prescriptionMapper.toResponse(getPrescription(id));
+        Prescription prescription = getPrescription(id);
+        careScope.assertCovers(prescription.getPatient().getId());
+        return prescriptionMapper.toResponse(prescription);
     }
 
     @Override
@@ -76,7 +80,9 @@ public class PrescriptionServiceImpl implements PrescriptionService {
     public Page<PrescriptionResponse> findAll(UUID patientId, UUID visitId, int pageNumber, int pageSize) {
         Specification<Prescription> spec = Specification.allOf(
                 PrescriptionSpecs.patient(patientId),
-                PrescriptionSpecs.visit(visitId));
+                PrescriptionSpecs.visit(visitId),
+                // a doctor reads their own patients' prescriptions, whoever wrote them
+                careScope.narrow(root -> root.get("patient").get("id")));
         Pageable pageable = PageRequest.of(pageNumber, pageSize, Sort.by(Sort.Direction.DESC, "prescribedAt"));
         return prescriptionRepository.findAll(spec, pageable).map(prescriptionMapper::toResponse);
     }
@@ -104,6 +110,7 @@ public class PrescriptionServiceImpl implements PrescriptionService {
     @Transactional(readOnly = true)
     public PdfFile renderPdf(UUID id) {
         Prescription prescription = getPrescription(id);
+        careScope.assertCovers(prescription.getPatient().getId());
         if (prescription.getVisit().getStatus() == VisitStatus.CANCELLED) {
             throw new BusinessRuleException("Prescriptions of cancelled visits cannot be printed");
         }

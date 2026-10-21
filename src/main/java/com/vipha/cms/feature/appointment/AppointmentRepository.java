@@ -22,6 +22,13 @@ public interface AppointmentRepository
             @Param("date") LocalDate date,
             @Param("excludedStatus") AppointmentStatus excludedStatus);
 
+    /** Whether the patient is booked with the doctor, now or in the past. */
+    boolean existsByDoctorUserIdAndPatientIdAndStatusNot(
+            String doctorUserId,
+            UUID patientId,
+            AppointmentStatus status
+    );
+
     List<Appointment> findByPatientIdOrderByAppointmentDateDescAppointmentTimeDesc(
             UUID patientId
     );

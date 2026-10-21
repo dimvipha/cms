@@ -2,6 +2,7 @@ package com.vipha.cms.feature.patient;
 
 import com.vipha.cms.common.exception.BusinessRuleException;
 import com.vipha.cms.common.exception.ResourceNotFoundException;
+import com.vipha.cms.feature.care.CareScope;
 import com.vipha.cms.feature.patient.dto.PatientCreateRequest;
 import com.vipha.cms.feature.patient.dto.PatientResponse;
 import com.vipha.cms.feature.patient.dto.PatientUpdateRequest;
@@ -34,6 +35,7 @@ public class PatientServiceImpl implements PatientService {
     private final KeycloakUserService keycloakUserService;
     private final Keycloak keycloak;
     private final KeycloakAuthClient keycloakAuthClient;
+    private final CareScope careScope;
 
     private String generateMrn() {
         return "P-%d-%05d".formatted(Year.now().getValue(), patientRepository.nextMrnSequence());
@@ -68,6 +70,7 @@ public class PatientServiceImpl implements PatientService {
     public PatientResponse findOne(UUID id) {
         Patient patient = getOrThrow(id);
         assertOwnOrAll(patient, Permissions.PATIENT_READ_ALL);
+        careScope.assertCovers(patient.getId());
         return patientMapper.toResponse(patient);
     }
 
@@ -86,6 +89,7 @@ public class PatientServiceImpl implements PatientService {
     public PatientResponse update(UUID id, PatientUpdateRequest request) {
         Patient patient = getOrThrow(id);
         assertOwnOrAll(patient, Permissions.PATIENT_UPDATE_ALL);
+        careScope.assertCovers(patient.getId());
         patientMapper.updateEntity(request, patient);
         return patientMapper.toResponse(patient);
     }
@@ -99,7 +103,8 @@ public class PatientServiceImpl implements PatientService {
 
     @Override
     public Page<PatientResponse> findAll(String search, Pageable pageable) {
-        Specification<Patient> spec = PatientSpecs.active();
+        // a doctor finds only their own patients
+        Specification<Patient> spec = PatientSpecs.active().and(careScope.narrow(root -> root.get("id")));
         Specification<Patient> matching = PatientSpecs.search(search);
         if (matching != null) {
             spec = spec.and(matching);
