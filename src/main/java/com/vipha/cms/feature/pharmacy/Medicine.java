@@ -5,17 +5,19 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
 import org.hibernate.annotations.BatchSize;
-import org.hibernate.annotations.SQLRestriction;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * A discontinued medicine ({@code active = false}) stays loadable so old
+ * prescriptions and invoices keep working; the catalogue and new prescriptions leave it out.
+ */
 @Entity
 @Table(name = "medicine")
 @Getter
 @Setter
-@SQLRestriction("active = true")
 @BatchSize(size = 50) // prescription lists load item medicines in one round trip
 public class Medicine extends BaseEntity {
 

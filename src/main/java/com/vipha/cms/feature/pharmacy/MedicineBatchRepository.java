@@ -23,4 +23,8 @@ public interface MedicineBatchRepository extends JpaRepository<MedicineBatch, UU
             "group by b.medicine.id")
     List<MedicineStock> sumUsableStock(@Param("medicineIds") Collection<UUID> medicineIds,
                                        @Param("today") LocalDate today);
+
+    List<MedicineBatch> findByMedicineIdOrderByExpiryDateAsc(UUID medicineId);
+
+    boolean existsByMedicineIdAndBatchNumber(UUID medicineId, String batchNumber);
 }
