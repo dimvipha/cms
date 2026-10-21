@@ -1,5 +1,7 @@
 package com.vipha.cms.feature.auth;
 
+import com.vipha.cms.feature.auth.dto.ChangePasswordRequest;
+import com.vipha.cms.feature.auth.dto.ForgotPasswordRequest;
 import com.vipha.cms.feature.auth.dto.LoginRequest;
 import com.vipha.cms.feature.auth.dto.LogoutRequest;
 import com.vipha.cms.feature.auth.dto.RefreshRequest;
@@ -37,5 +39,18 @@ public class AuthController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void logout(@Valid @RequestBody LogoutRequest request) {
         authService.logout(request);
+    }
+
+    /** Always 202, whether or not the email has an account. */
+    @PostMapping("/forgot-password")
+    @ResponseStatus(HttpStatus.ACCEPTED)
+    public void forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
+        authService.forgotPassword(request);
+    }
+
+    @PostMapping("/change-password")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void changePassword(@Valid @RequestBody ChangePasswordRequest request) {
+        authService.changePassword(request);
     }
 }
