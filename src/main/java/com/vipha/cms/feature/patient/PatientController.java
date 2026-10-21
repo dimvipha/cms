@@ -28,6 +28,12 @@ public class PatientController {
         return patientService.create(request);
     }
 
+    /** The caller's own record; 404 until they have created it. */
+    @GetMapping("/me")
+    public PatientResponse findMine() {
+        return patientService.findMine();
+    }
+
     @GetMapping("/{id}")
     public PatientResponse findOne(@PathVariable UUID id) {
         return patientService.findOne(id);
@@ -45,12 +51,14 @@ public class PatientController {
         patientService.delete(id);
     }
 
+    /** Staff look-up; {@code search} matches first or last name, MRN or phone. */
     @GetMapping
     public Page<PatientResponse> findAll(
+            @RequestParam(required = false) String search,
             @RequestParam(required = false, defaultValue = "0") int  pageNumber,
             @RequestParam(required = false, defaultValue = "10") int size) {
         Pageable pageable= PageRequest.of(pageNumber, size, Sort.by("createdAt").ascending());
 
-        return patientService.findAll(pageable);
+        return patientService.findAll(search, pageable);
     }
 }

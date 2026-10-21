@@ -22,6 +22,9 @@ public interface InvoiceService {
     Page<InvoiceSummaryResponse> findAll(UUID patientId, UUID visitId, InvoiceStatus status,
                                          int pageNumber, int pageSize);
 
+    /** One patient's invoices without drafts, for the patient's own view. */
+    Page<InvoiceSummaryResponse> findIssued(UUID patientId, int pageNumber, int pageSize);
+
     Page<BillableVisitResponse> findBillableVisits(int pageNumber, int pageSize);
 
     InvoiceResponse update(UUID id, UpdateInvoiceRequest request);

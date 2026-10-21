@@ -206,6 +206,9 @@ public class VisitServiceImpl implements VisitService {
         }
         Patient patient = patientRepository.findById(request.patientId())
                 .orElseThrow(() -> new ResourceNotFoundException("Patient not found"));
+        if (!patient.isActive()) {
+            throw new BusinessRuleException("Patient account is inactive");
+        }
 
         String doctorId = StringUtils.hasText(request.doctorId()) ? request.doctorId() : AuthUtils.extractUserId();
         Doctor doctor = doctorRepository.findById(doctorId)

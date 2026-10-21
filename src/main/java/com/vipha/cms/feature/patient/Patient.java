@@ -6,17 +6,19 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import org.hibernate.annotations.SQLRestriction;
 
 import java.time.LocalDate;
 
+/**
+ * A closed record ({@code active = false}) stays loadable so its appointments,
+ * visits and invoices keep working; lists and new bookings leave it out.
+ */
 @Entity
 @Table(name = "patient")
 @Getter
 @Setter
 @AllArgsConstructor
 @NoArgsConstructor
-@SQLRestriction("active = true")
 public class Patient extends BaseEntity {
 
     @Column(nullable = false, unique = true, updatable = false)

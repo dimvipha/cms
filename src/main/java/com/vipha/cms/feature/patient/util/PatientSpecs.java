@@ -16,6 +16,11 @@ public final class PatientSpecs {
                 cb.like(root.get("phone"), like));
     }
 
+    /** Leaves out closed records. */
+    public static Specification<Patient> active() {
+        return (root, query, cb) -> cb.isTrue(root.get("active"));
+    }
+
     public static Specification<Patient> bloodGroup(String bg) {
         return !StringUtils.hasText(bg) ? null
                 : (root, query, cb) -> cb.equal(root.get("bloodGroup"), bg);

@@ -11,8 +11,12 @@ import java.util.UUID;
 public interface PatientService {
     PatientResponse create(PatientCreateRequest request);
     PatientResponse findOne(UUID id);
+    /** The record linked to the caller's account. */
+    PatientResponse findMine();
+    UUID currentPatientId();
     PatientResponse update(UUID id, PatientUpdateRequest request);
     void delete(UUID id);
 
-    Page<PatientResponse> findAll(Pageable pageable);
+    /** {@code search} matches first or last name, MRN or phone; null lists everyone. */
+    Page<PatientResponse> findAll(String search, Pageable pageable);
 }

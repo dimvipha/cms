@@ -24,4 +24,9 @@ public final class InvoiceSpecs {
         return status == null ? Specification.unrestricted()
                 : (root, query, cb) -> cb.equal(root.get("status"), status);
     }
+
+    /** Leaves out drafts, which the patient has not been billed for yet. */
+    public static Specification<Invoice> issued() {
+        return (root, query, cb) -> cb.notEqual(root.get("status"), InvoiceStatus.DRAFT);
+    }
 }

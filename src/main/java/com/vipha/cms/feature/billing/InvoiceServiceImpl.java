@@ -130,6 +130,14 @@ public class InvoiceServiceImpl implements InvoiceService {
 
     @Override
     @Transactional(readOnly = true)
+    public Page<InvoiceSummaryResponse> findIssued(UUID patientId, int pageNumber, int pageSize) {
+        Specification<Invoice> spec = Specification.allOf(InvoiceSpecs.patient(patientId), InvoiceSpecs.issued());
+        Pageable pageable = PageRequest.of(pageNumber, pageSize, Sort.by(Sort.Direction.DESC, "issuedAt"));
+        return invoiceRepository.findAll(spec, pageable).map(invoiceMapper::toSummary);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public Page<BillableVisitResponse> findBillableVisits(int pageNumber, int pageSize) {
         Pageable pageable = PageRequest.of(pageNumber, pageSize, Sort.by(Sort.Direction.DESC, "visitDate"));
         return invoiceRepository.findUnbilledVisits(VisitStatus.COMPLETED, InvoiceStatus.VOID, pageable)
