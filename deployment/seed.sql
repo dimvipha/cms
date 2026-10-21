@@ -1,25 +1,10 @@
 -- ============================================================
 --  CMS SEED DATA
---  Run with:
---    docker exec -i cms-db psql -U cms_user -f /dev/stdin < deployment/seed.sql
+--  Run with ./seed.sh, which also creates the doctors' Keycloak logins, or:
+--    docker exec -i clinic-db psql -U clinic_user -d clinic_db -1 -f /dev/stdin < deployment/seed.sql
 -- ============================================================
 
--- ─── KEYCLOAK: create doctor users in the master realm ───────────────────────
-
-\c keycloak_cms_db
-
-INSERT INTO user_entity (id, email, email_constraint, email_verified, enabled, first_name, last_name, realm_id, username, created_timestamp, not_before)
-VALUES
-  ('aaaa0001-0000-0000-0000-000000000001', 'dr.somchai@cms.local',  'dr.somchai@cms.local',  true, true, 'Somchai',  'Raksa',    'c093187d-27cf-4ff4-9567-8d4a9f6ba873', 'dr.somchai',  extract(epoch from now())::bigint * 1000, 0),
-  ('aaaa0002-0000-0000-0000-000000000002', 'dr.nipa@cms.local',     'dr.nipa@cms.local',     true, true, 'Nipa',     'Chantra',  'c093187d-27cf-4ff4-9567-8d4a9f6ba873', 'dr.nipa',     extract(epoch from now())::bigint * 1000, 0),
-  ('aaaa0003-0000-0000-0000-000000000003', 'dr.wirat@cms.local',    'dr.wirat@cms.local',    true, true, 'Wirat',    'Phutthon', 'c093187d-27cf-4ff4-9567-8d4a9f6ba873', 'dr.wirat',    extract(epoch from now())::bigint * 1000, 0),
-  ('aaaa0004-0000-0000-0000-000000000004', 'dr.malee@cms.local',    'dr.malee@cms.local',    true, true, 'Malee',    'Siriwan',  'c093187d-27cf-4ff4-9567-8d4a9f6ba873', 'dr.malee',    extract(epoch from now())::bigint * 1000, 0),
-  ('aaaa0005-0000-0000-0000-000000000005', 'dr.prasong@cms.local',  'dr.prasong@cms.local',  true, true, 'Prasong',  'Klinkaew', 'c093187d-27cf-4ff4-9567-8d4a9f6ba873', 'dr.prasong',  extract(epoch from now())::bigint * 1000, 0)
-ON CONFLICT DO NOTHING;
-
 -- ─── CMS DATA ────────────────────────────────────────────────────────────────
-
-\c cms_db
 
 -- ── Departments ──────────────────────────────────────────────────────────────
 

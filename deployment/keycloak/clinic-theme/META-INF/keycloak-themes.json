@@ -1,0 +1,5 @@
+{
+  "themes": [
+    { "name": "clinic", "types": ["email"] }
+  ]
+}

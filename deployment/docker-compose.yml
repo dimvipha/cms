@@ -1,5 +1,5 @@
 networks:
-  cms-net:
+  clinic-net:
     external: true
 
 volumes:
@@ -59,6 +59,20 @@ services:
 
     depends_on:
       - clinic-db
+
+    networks:
+      - clinic-net
+
+    restart: unless-stopped
+
+
+  # catches every email Keycloak sends (staff setup links, password resets);
+  # read them at http://localhost:1202
+  mailpit:
+    image: axllent/mailpit:v1.31.3
+    container_name: mailpit
+    ports:
+      - "1202:8025"
 
     networks:
       - clinic-net

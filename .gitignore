@@ -39,6 +39,9 @@ out/
 **/.env
 !**/.env.example
 
+# database dumps written by deployment/backup.sh
+deployment/backups/
+
 
 CLAUDE.md
 CLAUDE.local.md
