@@ -1,4 +1,9 @@
 package com.vipha.cms.feature.billing;
 
-public class ItemType {
+public enum ItemType {
+    CONSULTATION,
+    LAB_TEST,
+    MEDICINE,
+    PROCEDURE,
+    OTHER
 }

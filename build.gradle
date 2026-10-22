@@ -30,11 +30,14 @@ dependencies {
 	implementation 'org.keycloak:keycloak-admin-client:26.0.12'
 	// Source: https://mvnrepository.com/artifact/org.springdoc/springdoc-openapi-starter-webmvc-ui
 	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:3.1.1'
+	// Source: https://mvnrepository.com/artifact/com.github.librepdf/openpdf
+	implementation 'com.github.librepdf:openpdf:3.0.5'
 	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
 	implementation 'org.springframework.boot:spring-boot-starter-webmvc'
 	implementation 'org.springframework.boot:spring-boot-starter-security'
 	implementation 'org.springframework.boot:spring-boot-starter-security-oauth2-resource-server'
 	testImplementation 'org.springframework.security:spring-security-test'
+	testImplementation 'org.springframework.boot:spring-boot-starter-security-test'
 	compileOnly 'org.projectlombok:lombok'
 	annotationProcessor 'org.projectlombok:lombok'
 	testImplementation 'org.springframework.boot:spring-boot-starter-data-jpa-test'

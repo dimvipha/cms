@@ -4,12 +4,18 @@ import com.vipha.cms.common.exception.ResourceNotFoundException;
 import com.vipha.cms.feature.userprofile.dto.PatchUserProfileRequest;
 import com.vipha.cms.feature.userprofile.dto.UserProfileResponse;
 import com.vipha.cms.security.AuthUtils;
+import com.vipha.cms.security.UserNames;
+import jakarta.ws.rs.NotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.keycloak.admin.client.Keycloak;
 import org.keycloak.admin.client.resource.UserResource;
 import org.keycloak.representations.idm.UserRepresentation;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.HashMap;
 import java.util.List;
@@ -22,6 +28,7 @@ public class UserProfileServiceImpl implements UserProfileService {
     private final UserProfileRepository userProfileRepository;
     private final UserProfileMapper userProfileMapper;
     private final Keycloak keycloak;
+    private final UserNames userNames;
 
     @Value("${keycloak.realm}")
     private String realm;
@@ -64,12 +71,37 @@ public class UserProfileServiceImpl implements UserProfileService {
         updateKeycloakUser(keycloakUser, request);
 
         userResource.update(keycloakUser);
+        userNames.evict(userId);
 
         return userProfileMapper.toUserProfileResponse(
                 userProfile,
                 keycloakUser.getFirstName(),
                 keycloakUser.getLastName(),
                 getPhoneNumber(keycloakUser)
+        );
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<UserProfileResponse> findAll(int pageNumber, int pageSize) {
+        Pageable pageable = PageRequest.of(pageNumber, pageSize);
+
+        return userProfileRepository.findAll(pageable).map(this::toResponseWithKeycloak);
+    }
+
+
+    private UserProfileResponse toResponseWithKeycloak(UserProfile profile) {
+        UserRepresentation kc;
+        try {
+            kc = getKeycloakUser(profile.getId()).toRepresentation();
+        } catch (NotFoundException nf) {
+            kc = null;
+        }
+        return userProfileMapper.toUserProfileResponse(
+                profile,
+                kc == null ? null : kc.getFirstName(),
+                kc == null ? null : kc.getLastName(),
+                kc == null ? null : getPhoneNumber(kc)
         );
     }
 

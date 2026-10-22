@@ -36,5 +36,13 @@ out/
 ### VS Code ###
 .vscode/
 
+**/.env
+!**/.env.example
 
-./deployment/.env
+# database dumps written by deployment/backup.sh
+deployment/backups/
+
+
+CLAUDE.md
+CLAUDE.local.md
+.claude
