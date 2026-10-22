@@ -62,6 +62,7 @@ Lab orders, reports and dispensing are modelled but not built yet; see [Known ga
 | Framework | Spring Boot | 4.1.1 |
 | Web, security | Spring Framework / Spring Security (OAuth2 resource server) | 7.0 / 7.1 |
 | Persistence | Spring Data JPA, Hibernate | 4.1 / 7.4 |
+| Migrations | Flyway | 12.4 |
 | Database | PostgreSQL (JDBC driver 42.7) | 17 |
 | Identity | Keycloak, Keycloak admin client | latest image / 26.0.12 |
 | JSON | Jackson (`tools.jackson`) | 3.1 |
@@ -70,6 +71,7 @@ Lab orders, reports and dispensing are modelled but not built yet; see [Known ga
 | API docs | springdoc-openapi (Swagger UI) | 3.1.1 |
 | Tests | JUnit Jupiter, Mockito, AssertJ, Spring Security Test | 6.0 / 5.23 / 3.27 |
 | Local services | Docker Compose: Postgres, Keycloak, Mailpit | |
+| Production | Docker Compose: Postgres, Keycloak, the API, Caddy (HTTPS) | |
 
 Versions without a pin in `build.gradle` come from the Spring Boot BOM; leave them to it.
 
@@ -455,8 +457,9 @@ src/main/java/com/vipha/cms/
 
 src/main/resources/
 ├── application.properties        defaults, each overridable from .env or the environment
-├── application-prod.properties   schema validated only, SQL logging off, password endpoints off
-├── schema.sql                    sequences and a partial index (runs on every start)
+├── application-prod.properties   schema validated only, no SQL logging, password endpoints and
+│                                 API docs off
+├── db/migration/                 Flyway migrations; V1 is the whole schema
 └── .env.example                  the API's settings to copy into .env
 ```
 
@@ -481,9 +484,11 @@ src/main/resources/
 - Money is `BigDecimal` / `NUMERIC`; enums are stored as strings; ids are UUIDs (departments and
   schedule rows use numbers).
 
-**Schema.** Hibernate creates and updates the tables in development (`ddl-auto=update`), and
-`schema.sql` then adds the MRN and invoice-number sequences and the one-live-invoice-per-visit index.
-The `prod` profile only validates the schema; there are no migrations yet.
+**Schema.** Flyway builds it from `src/main/resources/db/migration` when the API starts. `V1` is
+the whole schema, with the MRN and invoice-number sequences and the one-live-invoice-per-visit
+index. A database made before Flyway (by Hibernate) is taken as already at V1. In development
+Hibernate also adds new columns (`ddl-auto=update`); the `prod` profile only checks that the
+tables match the entities, so every entity change needs a migration (`V2__...sql`).
 
 **Demo data.** `deployment/seed.sql` (loaded by `seed.sh`) adds 5 departments, 5 doctors with
 schedules, 8 patients, appointments, medicines with stock, past visits with vital signs and
@@ -580,30 +585,33 @@ Good to know:
 |---|---|
 | `docker-compose.yml` | Postgres 17 (`clinic-db`, port 1200), Keycloak (`keycloak-clinic-db`, port 1201, `start-dev`), Mailpit (port 1202); on the external network `clinic-net` |
 | `init_db/init_db.sql` | creates `clinic_db` and `keycloak_clinic_db` on the first start of Postgres |
-| `keycloak_setup.sh` | sets up the realm and can be run again safely: email, sign-up and password reset, the login theme (once Keycloak has loaded it), token and session lifetimes, roles and permissions, the patient group, both clients, the audience, the service account's rights, Google, and optionally staff two-factor. Flags: `PASSWORD_LOGIN`, `STAFF_TWO_FACTOR`, `API_AUDIENCE`, `LOGIN_THEME`, `SMTP_HOST`, `KEYCLOAK_URL` |
+| `keycloak_setup.sh` | sets up the realm and can be run again safely: email, sign-up and password reset, the login theme (once Keycloak has loaded it), token and session lifetimes, roles and permissions, the patient group, both clients, the audience, the service account's rights, Google, and optionally staff two-factor. Flags: `KEYCLOAK_URL`, `FRONTEND_ORIGINS`, `FRONTEND_HOME_URL`, `PASSWORD_LOGIN`, `STAFF_TWO_FACTOR`, `API_AUDIENCE`, `LOGIN_THEME`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_FROM`, `SMTP_USER`, `SMTP_PASSWORD` |
 | `seed.sh`, `seed.sql` | demo data and one login per role (skipped once loaded) |
 | `backup.sh` | `pg_dump` of both databases into `backups/` (ignored by git) |
 | `keycloak/providers/spring-clinic-theme.jar` | the sign-in pages (sign-in, sign-up, passwords, two-factor, notices) in the clinic's teal design, built by a separate Keycloakify project; Keycloak loads it on restart and `keycloak_setup.sh` switches the realm to it |
 | `keycloak/clinic-theme/`, `keycloak/build_theme.sh` | the branded invite and reset emails; the script packs them into `keycloak/providers/clinic-theme.jar`, which Keycloak loads on restart |
 | `keycloak_setup.sql` | an older SQL version of the realm set-up, replaced by `keycloak_setup.sh` |
+| `production/` | running it on a server: Compose with Caddy for HTTPS, the settings, realm set-up, first administrator and backups; its README is the step-by-step guide |
 
 ---
 
 ## Production checklist
 
-```bash
-PASSWORD_LOGIN=false STAFF_TWO_FACTOR=true ./deployment/keycloak_setup.sh   # no password grant, staff 2FA
-SPRING_PROFILES_ACTIVE=prod                                                 # password endpoints off
-```
+[`deployment/production/README.md`](deployment/production/README.md) walks through a deployment on
+a Linode (or any Ubuntu server), step by step. In short:
 
-- Serve the web app, the API and Keycloak over HTTPS only (TLS at a reverse proxy, HTTP
-  redirected), with Keycloak's `KC_HOSTNAME` set to its public `https://` address and Keycloak run
-  with `start`, not `start-dev`. Keep the realm's *Require SSL* at *external requests* or stricter.
-- Put the production web address in `FRONTEND_ORIGINS` in `keycloak_setup.sh` and in the API's
-  `FRONTEND_ALLOWED_ORIGINS` and `FRONTEND_LOGIN_URL`, and drop the `localhost` ones.
-- Pin the Keycloak image to a version instead of `latest`, set a real mail server, and keep the
-  `.env` files out of the image and the repository.
-- The `prod` profile does not create tables: create the schema first (see [Known gaps](#known-gaps)).
+- One server with 4 GB or more runs Postgres, Keycloak, the API (built from the `Dockerfile` at the
+  root) and Caddy, which serves the API and Keycloak over HTTPS with Let's Encrypt certificates.
+  Only ports 80 and 443 are open.
+- The API runs with the `prod` profile: Flyway builds the schema, Hibernate only checks it, and
+  the password endpoints and API docs are off.
+- Keycloak runs with `start` (not `start-dev`), a pinned version, its public `https://` name, and
+  the Spring Clinic theme.
+- `production/setup-keycloak.sh` sets up the realm for production: no password grant
+  (`PASSWORD_LOGIN=false`), two-factor sign-in for staff (`STAFF_TWO_FACTOR=true`), the web app's
+  address only, and a real mail server.
+- `production/create-admin.sh` makes the first administrator; `seed.sh` is not run there.
+- `production/backup.sh` dumps both databases nightly; copy them off the server.
 
 ---
 
@@ -611,14 +619,10 @@ SPRING_PROFILES_ACTIVE=prod                                                 # pa
 
 - **Not built yet:** lab orders and results, reports, and dispensing. Their entities or empty
   classes exist, but there are no endpoints, and prescribing does not take medicines out of stock.
-- **No migrations.** Development lets Hibernate update the schema; production has nothing to create
-  it. Flyway would close this.
-- **No container for the API.** `deployment/spring/Dockerfile` is empty and Compose runs only
-  Postgres, Keycloak and Mailpit.
 - **Swagger UI has no *Authorize* button**, since no bearer security scheme is declared, so it lists
   the endpoints but cannot call the protected ones.
 - **Time zones.** Free slots, the MRN year and patient ages use the server's clock rather than
-  `CLINIC_TIME_ZONE`; run the server in the clinic's time zone until that is fixed.
+  `CLINIC_TIME_ZONE`; the production Compose file sets the API's `TZ` to it until that is fixed.
 - **No database guard against double booking.** The service refuses a taken slot, but two bookings
   at the same instant could both pass.
 - `/actuator/health` is allowed in `SecurityConfig`, but Actuator is not a dependency, so it answers 404.
@@ -637,6 +641,8 @@ SPRING_PROFILES_ACTIVE=prod                                                 # pa
 - Business failures throw `BusinessRuleException` or `ResourceNotFoundException`, never a bare
   `RuntimeException`, so the client gets a 400 or 404 with a message.
 - Roles and permissions change in `deployment/keycloak_setup.sh` first, then in `SecurityConfig`.
+- An entity change comes with a Flyway migration, `src/main/resources/db/migration/V<n>__what.sql`;
+  a migration that has run is never edited.
 
 ---
 

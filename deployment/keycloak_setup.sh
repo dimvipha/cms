@@ -23,7 +23,9 @@ KEYCLOAK_URL="${KEYCLOAK_URL:-http://localhost:1201}"
 REALM="${KEYCLOAK_REALM:-clinic}"
 BACKEND_CLIENT="private-app"   # the Spring API: password login + admin API through its service account
 FRONTEND_CLIENT="cms-app"      # a browser/mobile app: authorization code flow with PKCE
-FRONTEND_ORIGINS='["http://localhost:5173", "http://localhost:3000"]'
+# the web app's addresses, as a JSON list; in production its public https:// address only
+LOCAL_ORIGINS='["http://localhost:5173", "http://localhost:3000"]'
+FRONTEND_ORIGINS="${FRONTEND_ORIGINS:-$LOCAL_ORIGINS}"
 # the web app's home page, for "Back to home" on Keycloak's pages; by default the first origin
 FRONTEND_HOME_URL="${FRONTEND_HOME_URL:-}"
 PATIENT_GROUP="patient-management"
@@ -31,10 +33,13 @@ PATIENT_GROUP="patient-management"
 # where Keycloak sends account emails (staff invites, password resets). Once a
 # server is configured (e.g. Gmail in the admin console) it is kept; until then,
 # or when SMTP_HOST is given, these values are used — by default the mailpit
-# container from docker-compose.yml. Servers that need a login are set in the console.
+# container from docker-compose.yml. With SMTP_USER and SMTP_PASSWORD (for Gmail,
+# an app password) Keycloak logs in to the server over STARTTLS.
 SMTP_HOST="${SMTP_HOST:-}"
 SMTP_PORT="${SMTP_PORT:-1025}"
 SMTP_FROM="${SMTP_FROM:-no-reply@clinic.local}"
+SMTP_USER="${SMTP_USER:-}"
+SMTP_PASSWORD="${SMTP_PASSWORD:-}"
 
 # branded invite and password-reset emails, from deployment/keycloak/clinic-theme
 EMAIL_THEME="clinic"
@@ -145,7 +150,8 @@ PATIENT_GROUP_PERMISSIONS="department:read doctor:read patient:read patient:writ
 
 die() { echo "error: $*" >&2; exit 1; }
 
-env_value() { grep -E "^$1=" .env | cut -d= -f2-; }
+# a value from .env next to this script; empty when there is no such file or line
+env_value() { [[ -f .env ]] && grep -E "^$1=" .env | cut -d= -f2- || true; }
 
 # request METHOD PATH [JSON] — calls the admin API under /admin/realms and prints
 # the response body. A GET that finds nothing prints nothing; other errors abort.
@@ -238,11 +244,14 @@ CURRENT_SMTP_HOST=$(jq -r '.smtpServer.host // empty' <<<"$REALM_REP")
 if [[ -n $CURRENT_SMTP_HOST && -z $SMTP_HOST ]]; then
   echo "  keeping smtp $CURRENT_SMTP_HOST"
 else
-  SMTP=$(jq -n --arg h "${SMTP_HOST:-mailpit}" --arg p "$SMTP_PORT" --arg f "$SMTP_FROM" \
-           '{host: $h, port: $p, from: $f, fromDisplayName: "CMS Clinic"}')
-  if [[ $(jq -c '.smtpServer | {host, port, from, fromDisplayName}' <<<"$REALM_REP") != "$(jq -c . <<<"$SMTP")" ]]; then
-    request PUT "$R" "$(jq -n --argjson s "$SMTP" '{smtpServer: $s}')" >/dev/null
-    echo "  smtp -> ${SMTP_HOST:-mailpit}:$SMTP_PORT, from $SMTP_FROM"
+  SMTP=$(jq -n --arg h "${SMTP_HOST:-mailpit}" --arg p "$SMTP_PORT" --arg f "$SMTP_FROM" --arg u "$SMTP_USER" \
+           '{host: $h, port: $p, from: $f, fromDisplayName: "CMS Clinic"}
+            + if $u == "" then {} else {auth: "true", starttls: "true", user: $u} end')
+  # Keycloak never shows the password back, so a given one is always sent
+  if [[ -n $SMTP_PASSWORD || $(jq -c '.smtpServer | {host, port, from, fromDisplayName, auth, starttls, user} | with_entries(select(.value != null and .value != "false" and .value != ""))' <<<"$REALM_REP") != "$(jq -c . <<<"$SMTP")" ]]; then
+    request PUT "$R" "$(jq -n --argjson s "$SMTP" --arg pw "$SMTP_PASSWORD" \
+                          '{smtpServer: ($s + if $pw == "" then {} else {password: $pw} end)}')" >/dev/null
+    echo "  smtp -> ${SMTP_HOST:-mailpit}:$SMTP_PORT, from $SMTP_FROM${SMTP_USER:+, as $SMTP_USER}"
   fi
 fi
 if [[ $(jq -r '"\(.emailTheme)|\(.displayName)"' <<<"$REALM_REP") != "$EMAIL_THEME|$REALM_DISPLAY_NAME" ]]; then
@@ -457,5 +466,5 @@ fi
 echo "==> Done"
 if [[ $BACKEND_CREATED == true ]]; then
   echo "  $BACKEND_CLIENT is new: copy its secret (Clients -> $BACKEND_CLIENT -> Credentials)"
-  echo "  into KEYCLOAK_CLIENT_SECRET in src/main/resources/.env"
+  echo "  into KEYCLOAK_CLIENT_SECRET: src/main/resources/.env, or production/.env on a server"
 fi

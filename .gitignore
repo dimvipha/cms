@@ -41,6 +41,7 @@ out/
 
 # database dumps written by deployment/backup.sh
 deployment/backups/
+deployment/production/backups/
 
 
 CLAUDE.md

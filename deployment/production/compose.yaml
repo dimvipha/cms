@@ -1,0 +1,103 @@
+# The clinic API in production: Postgres, Keycloak and the API, behind Caddy, which serves them
+# over HTTPS with free certificates from Let's Encrypt. Settings come from .env next to this file
+# (copy .env.example). Only Caddy is reachable from outside, on ports 80 and 443.
+#
+#   docker compose up -d --build
+name: clinic
+
+services:
+  postgres:
+    image: postgres:17.10
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: clinic_db
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      # Keycloak's own database, made on the first start
+      - ./init-keycloak-db.sql:/docker-entrypoint-initdb.d/init-keycloak-db.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d clinic_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.7.5
+    restart: unless-stopped
+    command: start
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres:5432/keycloak
+      KC_DB_USERNAME: ${POSTGRES_USER}
+      KC_DB_PASSWORD: ${POSTGRES_PASSWORD}
+      KC_HOSTNAME: https://${AUTH_HOST}
+      # Caddy holds the certificate and passes requests on in plain HTTP inside this network
+      KC_HTTP_ENABLED: "true"
+      KC_PROXY_HEADERS: xforwarded
+      KC_HEALTH_ENABLED: "true"
+      # the master realm's admin, made on the first start only
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KC_ADMIN_USERNAME}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KC_ADMIN_PASSWORD}
+    volumes:
+      # the Spring Clinic sign-in pages and the invite and reset emails
+      - ../keycloak/providers/spring-clinic-theme.jar:/opt/keycloak/providers/spring-clinic-theme.jar:ro
+      - ../keycloak/providers/clinic-theme.jar:/opt/keycloak/providers/clinic-theme.jar:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  api:
+    build:
+      context: ../..
+    restart: unless-stopped
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      DB_URL: jdbc:postgresql://postgres:5432/clinic_db
+      DB_USERNAME: ${POSTGRES_USER}
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      KEYCLOAK_ISSUER_URI: https://${AUTH_HOST}/realms/clinic
+      KEYCLOAK_SERVER_URL: https://${AUTH_HOST}
+      KEYCLOAK_REALM: clinic
+      KEYCLOAK_CLIENT_ID: private-app
+      KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET}
+      API_AUDIENCE: clinic-api
+      FRONTEND_ALLOWED_ORIGINS: ${WEB_ORIGIN}
+      FRONTEND_LOGIN_URL: ${WEB_ORIGIN}/login
+      FRONTEND_CLIENT_ID: cms-app
+      CLINIC_NAME: ${CLINIC_NAME}
+      CLINIC_ADDRESS: ${CLINIC_ADDRESS}
+      CLINIC_PHONE: ${CLINIC_PHONE}
+      CLINIC_TIME_ZONE: ${CLINIC_TIME_ZONE}
+      BILLING_CURRENCY: ${BILLING_CURRENCY}
+      CONSULTATION_FEE: ${CONSULTATION_FEE}
+      # some dates still follow the server's clock, so it keeps the clinic's time
+      TZ: ${CLINIC_TIME_ZONE}
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  caddy:
+    image: caddy:2.11.6-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      API_HOST: ${API_HOST}
+      AUTH_HOST: ${AUTH_HOST}
+      ACME_EMAIL: ${ACME_EMAIL}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - api
+      - keycloak
+
+volumes:
+  postgres-data:
+  caddy-data:
+  caddy-config:

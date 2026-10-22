@@ -1,0 +1,25 @@
+# HTTPS for the API and Keycloak. Caddy gets and renews their certificates from Let's Encrypt
+# on its own, once both names point at this server and ports 80 and 443 are open.
+{
+	email {$ACME_EMAIL}
+}
+
+(common) {
+	encode zstd gzip
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+		-Server
+	}
+}
+
+{$API_HOST} {
+	import common
+	reverse_proxy api:1300
+}
+
+{$AUTH_HOST} {
+	import common
+	reverse_proxy keycloak:8080
+}

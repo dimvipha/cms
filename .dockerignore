@@ -1,0 +1,9 @@
+# only the build files and src go into the image; never the local settings with their passwords
+*
+!gradlew
+!gradle/
+!settings.gradle
+!build.gradle
+!src/
+**/.env
+src/test/
