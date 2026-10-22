@@ -24,6 +24,8 @@ REALM="${KEYCLOAK_REALM:-clinic}"
 BACKEND_CLIENT="private-app"   # the Spring API: password login + admin API through its service account
 FRONTEND_CLIENT="cms-app"      # a browser/mobile app: authorization code flow with PKCE
 FRONTEND_ORIGINS='["http://localhost:5173", "http://localhost:3000"]'
+# the web app's home page, for "Back to home" on Keycloak's pages; by default the first origin
+FRONTEND_HOME_URL="${FRONTEND_HOME_URL:-}"
 PATIENT_GROUP="patient-management"
 
 # where Keycloak sends account emails (staff invites, password resets). Once a
@@ -340,13 +342,15 @@ update_client "$FRONTEND_ID" '
   | .directAccessGrantsEnabled = false
   | .serviceAccountsEnabled = false
   | .fullScopeAllowed = false
+  | .baseUrl = $home                       # Home URL: "Back to home" on the sign-in pages
   # exact addresses, no wildcards (RFC 9700): the sign-in callback, and the login page that
   # invite and password-reset emails link back to (FRONTEND_LOGIN_URL on the API)
   | .redirectUris = ($origins | map(. + "/auth/callback", . + "/login"))
   | .webOrigins = $origins
   | .attributes["pkce.code.challenge.method"] = "S256"
   | .attributes["post.logout.redirect.uris"] = ($origins | map(. + "/login") | join("##"))' \
-  --argjson origins "$FRONTEND_ORIGINS"
+  --argjson origins "$FRONTEND_ORIGINS" \
+  --arg home "${FRONTEND_HOME_URL:-$(jq -r '.[0] + "/"' <<<"$FRONTEND_ORIGINS")}"
 
 echo "==> Audience $API_AUDIENCE"
 find_scope() { request GET "$R/client-scopes" | jq -r --arg n "$AUDIENCE_SCOPE" '.[] | select(.name == $n) | .id'; }
