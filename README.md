@@ -184,8 +184,9 @@ clinic-management-api/
 │   └── keycloak/clinic-realm.json
 ├── docs/
 │   ├── erd.png
-│   ├── architecture.png
-│   └── clinic-api.postman_collection.json
+│   └── architecture.png
+├── postman/
+│   └── cms-all-roles.postman_collection.json   # end-to-end run for all seven roles
 └── src/
     ├── main/
     │   ├── java/com/example/clinic/
@@ -553,7 +554,8 @@ becomes a patient (role, patient group and profile), as with `/register`, and th
 tokens carrying the role. `deployment/keycloak_setup.sh` sets this up: `cms-app`'s redirect URIs and
 web origins (each frontend origin), and sign-up, email login and password reset on the realm. It
 leaves the realm's login theme as it is. `POST /api/v1/auth/login` (password grant through
-`private-app`) stays for API clients such as the Postman collection.
+`private-app`) stays for API clients such as the [Postman collection](#postman-collection), in
+development only (see [Sign-in security](#sign-in-security)).
 
 To add Google:
 
@@ -729,6 +731,47 @@ Errors follow RFC 7807:
 - **Security tests** use `@WithMockUser(authorities = ...)` to assert that 403s actually fire for every restricted endpoint.
 
 Testcontainers needs a running Docker daemon. If `./gradlew check` fails with "Could not find a valid Docker environment", that's the cause, not your test.
+
+### Postman collection
+
+`postman/cms-all-roles.postman_collection.json` runs the API end to end for all seven roles against
+the running stack: one clinic visit from booking to payment, a permission matrix of every role
+against every permission, ownership checks (patients and doctors reach only their own data), and
+signing in and sessions.
+
+Before running:
+
+1. `deployment/keycloak_setup.sh`: roles, group, clients, the API's audience and token rules
+2. `deployment/seed.sh`: clinic data and one login per role
+3. Start the API on port 1300 in development (the `prod` profile turns the password endpoints off)
+
+Run the folders in order, since later requests use ids saved by earlier ones: in Postman with the
+Collection Runner, or from the command line:
+
+```bash
+npx newman@6.2.1 run postman/cms-all-roles.postman_collection.json
+```
+
+About signing in, it checks that:
+
+- each login's token carries exactly its role's permissions and names the API as its audience
+  (`aud: clinic-api`)
+- visitors read the clinic directory and whether Google is offered without a login, while
+  `/auth/welcome` needs one and leaves patients and staff as they are
+- a password change, refresh and logout work, and a refresh token works once: replaying the
+  replaced one is refused
+
+Good to know:
+
+- The logins use the API's password endpoints, which exist in development only.
+- Staff log in with the `staffPassword` variable. If a seeded account's password has been changed
+  (on Keycloak's page, say), its login fails with 401 and everything that role does after it fails
+  too, as do requests needing the ids it would have created. Reset the password in the Keycloak
+  admin console (*Temporary* off) or update the variable.
+- Staff invited through `POST /api/v1/staff` must set up two-factor sign-in first, so they cannot
+  log in here until they have.
+- Each run registers a new patient, books the next free slot, registers one walk-in and adds one
+  medicine (discontinued again at the end). No emails are sent.
 
 ---
 
