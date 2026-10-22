@@ -583,7 +583,7 @@ Good to know:
 | `keycloak_setup.sh` | sets up the realm and can be run again safely: email, sign-up and password reset, the login theme (once Keycloak has loaded it), token and session lifetimes, roles and permissions, the patient group, both clients, the audience, the service account's rights, Google, and optionally staff two-factor. Flags: `PASSWORD_LOGIN`, `STAFF_TWO_FACTOR`, `API_AUDIENCE`, `LOGIN_THEME`, `SMTP_HOST`, `KEYCLOAK_URL` |
 | `seed.sh`, `seed.sql` | demo data and one login per role (skipped once loaded) |
 | `backup.sh` | `pg_dump` of both databases into `backups/` (ignored by git) |
-| `keycloak/login-theme/` | the sign-in pages (sign-in, sign-up, passwords, two-factor, notices), a Keycloakify project in the clinic's teal design; `npm run build-keycloak-theme` makes `keycloak/providers/spring-clinic-theme.jar` (needs Maven), see its README |
+| `keycloak/providers/spring-clinic-theme.jar` | the sign-in pages (sign-in, sign-up, passwords, two-factor, notices) in the clinic's teal design, built by a separate Keycloakify project; Keycloak loads it on restart and `keycloak_setup.sh` switches the realm to it |
 | `keycloak/clinic-theme/`, `keycloak/build_theme.sh` | the branded invite and reset emails; the script packs them into `keycloak/providers/clinic-theme.jar`, which Keycloak loads on restart |
 | `keycloak_setup.sql` | an older SQL version of the realm set-up, replaced by `keycloak_setup.sh` |
 

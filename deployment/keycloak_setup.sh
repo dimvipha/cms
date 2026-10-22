@@ -36,8 +36,8 @@ SMTP_FROM="${SMTP_FROM:-no-reply@clinic.local}"
 
 # branded invite and password-reset emails, from deployment/keycloak/clinic-theme
 EMAIL_THEME="clinic"
-# the sign-in, sign-up and account pages, from deployment/keycloak/login-theme (built into
-# keycloak/providers/spring-clinic-theme.jar); LOGIN_THEME= leaves the realm's choice alone
+# the sign-in and sign-up pages: keycloak/providers/spring-clinic-theme.jar, built by the separate
+# Spring Clinic login-theme project; LOGIN_THEME= leaves the realm's choice alone
 LOGIN_THEME="${LOGIN_THEME-spring-clinic}"
 REALM_DISPLAY_NAME="CMS Clinic"
 
