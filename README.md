@@ -580,9 +580,10 @@ Good to know:
 |---|---|
 | `docker-compose.yml` | Postgres 17 (`clinic-db`, port 1200), Keycloak (`keycloak-clinic-db`, port 1201, `start-dev`), Mailpit (port 1202); on the external network `clinic-net` |
 | `init_db/init_db.sql` | creates `clinic_db` and `keycloak_clinic_db` on the first start of Postgres |
-| `keycloak_setup.sh` | sets up the realm and can be run again safely: email, sign-up and password reset, token and session lifetimes, roles and permissions, the patient group, both clients, the audience, the service account's rights, Google, and optionally staff two-factor. Flags: `PASSWORD_LOGIN`, `STAFF_TWO_FACTOR`, `API_AUDIENCE`, `SMTP_HOST`, `KEYCLOAK_URL` |
+| `keycloak_setup.sh` | sets up the realm and can be run again safely: email, sign-up and password reset, the login theme (once Keycloak has loaded it), token and session lifetimes, roles and permissions, the patient group, both clients, the audience, the service account's rights, Google, and optionally staff two-factor. Flags: `PASSWORD_LOGIN`, `STAFF_TWO_FACTOR`, `API_AUDIENCE`, `LOGIN_THEME`, `SMTP_HOST`, `KEYCLOAK_URL` |
 | `seed.sh`, `seed.sql` | demo data and one login per role (skipped once loaded) |
 | `backup.sh` | `pg_dump` of both databases into `backups/` (ignored by git) |
+| `keycloak/login-theme/` | the sign-in pages (sign-in, sign-up, passwords, two-factor, notices), a Keycloakify project in the clinic's teal design; `npm run build-keycloak-theme` makes `keycloak/providers/spring-clinic-theme.jar` (needs Maven), see its README |
 | `keycloak/clinic-theme/`, `keycloak/build_theme.sh` | the branded invite and reset emails; the script packs them into `keycloak/providers/clinic-theme.jar`, which Keycloak loads on restart |
 | `keycloak_setup.sql` | an older SQL version of the realm set-up, replaced by `keycloak_setup.sh` |
 

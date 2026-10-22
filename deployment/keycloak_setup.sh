@@ -34,8 +34,11 @@ SMTP_HOST="${SMTP_HOST:-}"
 SMTP_PORT="${SMTP_PORT:-1025}"
 SMTP_FROM="${SMTP_FROM:-no-reply@clinic.local}"
 
-# branded invite and password-reset emails, from deployment/keycloak/themes/clinic
+# branded invite and password-reset emails, from deployment/keycloak/clinic-theme
 EMAIL_THEME="clinic"
+# the sign-in, sign-up and account pages, from deployment/keycloak/login-theme (built into
+# keycloak/providers/spring-clinic-theme.jar); LOGIN_THEME= leaves the realm's choice alone
+LOGIN_THEME="${LOGIN_THEME-spring-clinic}"
 REALM_DISPLAY_NAME="CMS Clinic"
 
 # the audience the API checks (API_AUDIENCE in its .env): tokens name it in aud, so a token
@@ -248,12 +251,22 @@ fi
 
 echo "==> Sign-in page"
 # the web app signs everyone in on Keycloak's page (FRONTEND_CLIENT): patients sign up there with
-# their email as username and reset forgotten passwords there; the login theme is left as it is
+# their email as username and reset forgotten passwords there
 LOGIN=$(jq -n '{registrationAllowed: true, registrationEmailAsUsername: true,
                 loginWithEmailAllowed: true, resetPasswordAllowed: true}')
 if [[ $(jq -c '{registrationAllowed, registrationEmailAsUsername, loginWithEmailAllowed, resetPasswordAllowed}' <<<"$REALM_REP") != "$(jq -c . <<<"$LOGIN")" ]]; then
   request PUT "$R" "$LOGIN" >/dev/null
   echo "  sign-up, email login and password reset on"
+fi
+if [[ -n $LOGIN_THEME ]]; then
+  # Keycloak loads theme jars when it starts, so a new one needs a restart first
+  if ! curl -sS -H "Authorization: Bearer $TOKEN" "$KEYCLOAK_URL/admin/serverinfo" \
+       | jq -e --arg t "$LOGIN_THEME" 'any(.themes.login[]; .name == $t)' >/dev/null; then
+    echo "  login theme $LOGIN_THEME is not loaded: restart Keycloak after building it, then run this again"
+  elif [[ $(jq -r '.loginTheme // ""' <<<"$REALM_REP") != "$LOGIN_THEME" ]]; then
+    request PUT "$R" "$(jq -n --arg t "$LOGIN_THEME" '{loginTheme: $t}')" >/dev/null
+    echo "  login theme -> $LOGIN_THEME"
+  fi
 fi
 
 echo "==> Tokens and sessions"
