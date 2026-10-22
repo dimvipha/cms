@@ -4,14 +4,17 @@
 #     (doctor:read, invoice:write, ...); each base role carries its permissions
 #     as a composite role
 #   - the patient-management group that self-registered patients join
-#   - the backend and frontend clients, their login flows and token scopes
+#   - the backend and frontend clients, their login flows and token scopes, the
+#     API's audience, and how long tokens and sessions last
 #   - sign-in with Google, once GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET are in .env
+#   - optionally, two-factor sign-in for existing staff (STAFF_TWO_FACTOR=true)
 #
 # Safe to re-run: mappings are synced, so a permission removed here is also
 # removed in Keycloak. Reads the Keycloak admin login from .env next to it.
 #
 #   ./keycloak_setup.sh
 #   KEYCLOAK_URL=http://other-host:1201 ./keycloak_setup.sh
+#   PASSWORD_LOGIN=false STAFF_TWO_FACTOR=true ./keycloak_setup.sh   # production
 
 set -euo pipefail
 cd "$(dirname "$0")"
@@ -35,8 +38,31 @@ SMTP_FROM="${SMTP_FROM:-no-reply@clinic.local}"
 EMAIL_THEME="clinic"
 REALM_DISPLAY_NAME="CMS Clinic"
 
-# basic puts the user id (sub) in tokens, roles puts realm_access.roles; the API needs both
-DEFAULT_SCOPES="basic roles"
+# the audience the API checks (API_AUDIENCE in its .env): tokens name it in aud, so a token
+# Keycloak issued for some other app of the realm is refused
+API_AUDIENCE="${API_AUDIENCE:-clinic-api}"
+AUDIENCE_SCOPE="clinic-api-audience"
+
+# basic puts the user id (sub) in tokens, roles puts realm_access.roles and the audience scope
+# puts aud; the API needs all three
+DEFAULT_SCOPES="basic roles $AUDIENCE_SCOPE"
+
+# Password login straight to the token endpoint (POST /api/v1/auth/login, for API clients such
+# as Postman). The OAuth security best practice (RFC 9700) rules it out: set false in production,
+# with PASSWORD_ENDPOINTS=false on the API.
+PASSWORD_LOGIN="${PASSWORD_LOGIN:-true}"
+
+# Two-factor sign-in (an authenticator app) for staff who have not set it up yet. Invited staff
+# are asked for it anyway; this asks the existing ones at their next sign-in. Off by default,
+# since an account with a pending step cannot use password login (Postman). True in production.
+STAFF_TWO_FACTOR="${STAFF_TWO_FACTOR:-false}"
+STAFF_ROLES="ADMIN DOCTOR NURSE RECEPTIONIST PHARMACIST LAB_TECHNICIAN"
+
+# Tokens and sessions, in seconds: access tokens last 5 minutes; each refresh token works once
+# (a stolen one that is replayed is refused); a session ends after 30 idle minutes or 10 hours.
+ACCESS_TOKEN_LIFESPAN=300
+SSO_SESSION_IDLE=1800
+SSO_SESSION_MAX=36000
 
 # realm-management roles the backend's service account needs to create users,
 # assign their roles and add them to groups, and to see whether Google sign-in is set up
@@ -183,6 +209,9 @@ update_client() {
 
 command -v jq >/dev/null || die "jq is required"
 command -v curl >/dev/null || die "curl is required"
+for flag in PASSWORD_LOGIN STAFF_TWO_FACTOR; do
+  [[ ${!flag} == true || ${!flag} == false ]] || die "$flag must be true or false"
+done
 
 TOKEN=$(curl -sS -f "$KEYCLOAK_URL/realms/master/protocol/openid-connect/token" \
           -d grant_type=password -d client_id=admin-cli \
@@ -225,6 +254,15 @@ LOGIN=$(jq -n '{registrationAllowed: true, registrationEmailAsUsername: true,
 if [[ $(jq -c '{registrationAllowed, registrationEmailAsUsername, loginWithEmailAllowed, resetPasswordAllowed}' <<<"$REALM_REP") != "$(jq -c . <<<"$LOGIN")" ]]; then
   request PUT "$R" "$LOGIN" >/dev/null
   echo "  sign-up, email login and password reset on"
+fi
+
+echo "==> Tokens and sessions"
+TOKENS=$(jq -n --argjson a "$ACCESS_TOKEN_LIFESPAN" --argjson i "$SSO_SESSION_IDLE" --argjson m "$SSO_SESSION_MAX" \
+           '{revokeRefreshToken: true, refreshTokenMaxReuse: 0, accessTokenLifespan: $a,
+             ssoSessionIdleTimeout: $i, ssoSessionMaxLifespan: $m}')
+if [[ $(jq -c '{revokeRefreshToken, refreshTokenMaxReuse, accessTokenLifespan, ssoSessionIdleTimeout, ssoSessionMaxLifespan}' <<<"$REALM_REP") != "$(jq -c . <<<"$TOKENS")" ]]; then
+  request PUT "$R" "$TOKENS" >/dev/null
+  echo "  refresh tokens used once; access ${ACCESS_TOKEN_LIFESPAN}s, idle ${SSO_SESSION_IDLE}s, session ${SSO_SESSION_MAX}s"
 fi
 
 echo "==> Roles"
@@ -271,12 +309,13 @@ update_client "$BACKEND_ID" '
   | .clientAuthenticatorType = "client-secret"
   | .standardFlowEnabled = false          # browsers sign in through the frontend client
   | .implicitFlowEnabled = false
-  | .directAccessGrantsEnabled = true     # POST /api/v1/auth/login (password grant, API clients)
+  | .directAccessGrantsEnabled = $password  # POST /api/v1/auth/login (password grant, API clients)
   | .serviceAccountsEnabled = true        # admin API: create users, assign roles, join groups
   | .fullScopeAllowed = false             # tokens carry only the roles in its scope (below)
   | .redirectUris = []
   | .webOrigins = []
-  | del(.attributes["pkce.code.challenge.method"])'
+  | del(.attributes["pkce.code.challenge.method"])' \
+  --argjson password "$PASSWORD_LOGIN"
 
 echo "==> Client $FRONTEND_CLIENT"
 ensure_client "$FRONTEND_CLIENT"
@@ -288,11 +327,36 @@ update_client "$FRONTEND_ID" '
   | .directAccessGrantsEnabled = false
   | .serviceAccountsEnabled = false
   | .fullScopeAllowed = false
-  | .redirectUris = ($origins | map(. + "/*"))
+  # exact addresses, no wildcards (RFC 9700): the sign-in callback, and the login page that
+  # invite and password-reset emails link back to (FRONTEND_LOGIN_URL on the API)
+  | .redirectUris = ($origins | map(. + "/auth/callback", . + "/login"))
   | .webOrigins = $origins
   | .attributes["pkce.code.challenge.method"] = "S256"
-  | .attributes["post.logout.redirect.uris"] = ($origins | map(. + "/*") | join("##"))' \
+  | .attributes["post.logout.redirect.uris"] = ($origins | map(. + "/login") | join("##"))' \
   --argjson origins "$FRONTEND_ORIGINS"
+
+echo "==> Audience $API_AUDIENCE"
+find_scope() { request GET "$R/client-scopes" | jq -r --arg n "$AUDIENCE_SCOPE" '.[] | select(.name == $n) | .id'; }
+SCOPE_ID=$(find_scope)
+if [[ -z $SCOPE_ID ]]; then
+  request POST "$R/client-scopes" "$(jq -n --arg n "$AUDIENCE_SCOPE" '{
+      name: $n, protocol: "openid-connect", description: "Names the clinic API in access tokens (aud)",
+      attributes: {"include.in.token.scope": "false", "display.on.consent.screen": "false"}}')" >/dev/null
+  SCOPE_ID=$(find_scope)
+  echo "  + client scope $AUDIENCE_SCOPE"
+fi
+MAPPER=$(jq -n --arg a "$API_AUDIENCE" '{
+    name: "audience", protocol: "openid-connect", protocolMapper: "oidc-audience-mapper",
+    config: {"included.custom.audience": $a, "access.token.claim": "true",
+             "introspection.token.claim": "true", "id.token.claim": "false"}}')
+MAPPER_ID=$(request GET "$R/client-scopes/$SCOPE_ID/protocol-mappers/models" | jq -r '.[] | select(.name == "audience") | .id')
+if [[ -z $MAPPER_ID ]]; then
+  request POST "$R/client-scopes/$SCOPE_ID/protocol-mappers/models" "$MAPPER" >/dev/null
+  echo "  + aud $API_AUDIENCE"
+else
+  request PUT "$R/client-scopes/$SCOPE_ID/protocol-mappers/models/$MAPPER_ID" \
+              "$(jq -c --arg id "$MAPPER_ID" '. + {id: $id}' <<<"$MAPPER")" >/dev/null
+fi
 
 echo "==> Token scopes"
 CLIENT_SCOPES=$(request GET "$R/client-scopes")
@@ -352,6 +416,25 @@ else
   fi
   echo "  Google's OAuth client needs this authorized redirect URI:"
   echo "  $KEYCLOAK_URL/realms/$REALM/broker/google/endpoint"
+fi
+
+echo "==> Two-factor sign-in for staff"
+if [[ $STAFF_TWO_FACTOR != true ]]; then
+  echo "  skipped: STAFF_TWO_FACTOR=true asks staff without it to set it up at their next sign-in"
+else
+  declare -A SEEN=()
+  for role in $STAFF_ROLES; do
+    for uid in $(request GET "$R/roles/$role/users?first=0&max=1000" | jq -r '.[].id'); do
+      if [[ -n ${SEEN[$uid]:-} ]]; then continue; fi
+      SEEN[$uid]=1
+      # already set up, or already asked
+      if request GET "$R/users/$uid/credentials" | jq -e 'any(.[]; .type == "otp")' >/dev/null; then continue; fi
+      user=$(request GET "$R/users/$uid")
+      if jq -e '(.requiredActions // []) | index("CONFIGURE_TOTP") != null' <<<"$user" >/dev/null; then continue; fi
+      request PUT "$R/users/$uid" "$(jq -c '.requiredActions += ["CONFIGURE_TOTP"]' <<<"$user")" >/dev/null
+      echo "  + $(jq -r .username <<<"$user") ($role)"
+    done
+  done
 fi
 
 echo "==> Done"

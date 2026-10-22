@@ -538,7 +538,7 @@ The realm is imported automatically from `docker/keycloak/clinic-realm.json`. To
 2. Create a client `clinic-api` — client authentication on, service accounts enabled
 3. Create every permission as a **realm role**
 4. Create the six job roles and attach permissions via *Action → Add associated roles*
-5. Add an **audience mapper**: client scopes → `clinic-api-dedicated` → *Add mapper → By configuration → Audience*, included client audience `clinic-api`
+5. Add an **audience mapper**: a client scope `clinic-api-audience` → *Add mapper → By configuration → Audience*, included custom audience `clinic-api`, as a default scope of both clients (`deployment/keycloak_setup.sh` does this)
 6. Create users and assign a single job role each
 
 Step 5 is not optional — without it Spring rejects every token on audience validation.
@@ -565,6 +565,41 @@ To add Google:
 `GET /api/v1/auth/google` then reports `enabled: true` and the app shows *Continue with Google*, which
 opens Keycloak with `kc_idp_hint=google`. A Google account whose email matches an existing user is
 linked once that user proves the account is theirs, and keeps its roles.
+
+### Sign-in security
+
+Following the OAuth 2.0 Security Best Current Practice (RFC 9700) and OpenID Connect:
+
+- **Exact redirect URIs.** `cms-app` accepts only `<origin>/auth/callback` (sign-in) and
+  `<origin>/login` (the links in invite and password-reset emails), and logout returns only to
+  `<origin>/login`. No wildcards.
+- **PKCE, state and nonce.** Every sign-in carries a PKCE S256 challenge, a `state` and a `nonce`;
+  the app refuses an answer whose state, or an ID token whose nonce, is not its own.
+- **Audience.** Access tokens name the API (`aud: clinic-api`, from the `clinic-api-audience` client
+  scope) and the API refuses any other token (`API_AUDIENCE`). Run `keycloak_setup.sh` before
+  starting an API with this check, or every token is refused.
+- **Short tokens, single-use refresh tokens.** Access tokens last 5 minutes; each refresh token works
+  once, so a stolen one that is replayed is refused; a session ends after 30 idle minutes or 10 hours.
+- **Two-factor sign-in for staff.** Invited staff set up an authenticator app along with their
+  password (Keycloak's `CONFIGURE_TOTP`). `STAFF_TWO_FACTOR=true` asks existing staff too, at their
+  next sign-in.
+- **No password grant in production.** `/api/v1/auth/register`, `/login`, `/refresh`, `/logout`,
+  `/forgot-password` and `/change-password` serve API clients such as Postman while
+  `PASSWORD_ENDPOINTS` is true (the default); the `prod` profile turns them off. An account with a
+  setup step pending, such as two-factor, cannot use them until it finishes that on Keycloak's page.
+
+For production:
+
+```bash
+PASSWORD_LOGIN=false STAFF_TWO_FACTOR=true ./deployment/keycloak_setup.sh   # no password grant, staff 2FA
+SPRING_PROFILES_ACTIVE=prod                                                 # password endpoints off
+```
+
+- Serve the web app, the API and Keycloak over HTTPS only (TLS at the reverse proxy, HTTP
+  redirected), with Keycloak's `KC_HOSTNAME` set to its public `https://` address. Keep the realm's
+  *Require SSL* at *external requests* or stricter.
+- Put the production web address in `FRONTEND_ORIGINS` in `keycloak_setup.sh` and in the API's
+  `FRONTEND_ALLOWED_ORIGINS` and `FRONTEND_LOGIN_URL`, and drop the `localhost` ones.
 
 ### Get a token
 

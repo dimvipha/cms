@@ -26,6 +26,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.net.URI;
 import java.util.Arrays;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -123,6 +124,17 @@ public class KeycloakUserService {
                 .map(name -> realmResource().roles().get(name).toRepresentation())
                 .toList();
         user.roles().realmLevel().add(roles);
+    }
+
+    /** Steps Keycloak makes the user take at their next sign-in, e.g. CONFIGURE_TOTP. */
+    public void addRequiredActions(String userId, String... actions) {
+        UserResource resource = users().get(userId);
+        UserRepresentation user = resource.toRepresentation();
+        Set<String> required = new LinkedHashSet<>(
+                user.getRequiredActions() == null ? List.of() : user.getRequiredActions());
+        required.addAll(Arrays.asList(actions));
+        user.setRequiredActions(List.copyOf(required));
+        resource.update(user);
     }
 
     /** The user's realm roles, given directly or through a group. */
