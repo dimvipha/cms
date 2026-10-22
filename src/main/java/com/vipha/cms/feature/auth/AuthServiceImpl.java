@@ -1,8 +1,11 @@
 package com.vipha.cms.feature.auth;
 
+import com.vipha.cms.common.FrontendProperties;
 import com.vipha.cms.common.exception.BusinessRuleException;
 import com.vipha.cms.feature.auth.dto.ChangePasswordRequest;
 import com.vipha.cms.feature.auth.dto.ForgotPasswordRequest;
+import com.vipha.cms.feature.auth.dto.GoogleSignInOptions;
+import com.vipha.cms.feature.auth.dto.GoogleSignInRequest;
 import com.vipha.cms.feature.auth.dto.LoginRequest;
 import com.vipha.cms.feature.auth.dto.LogoutRequest;
 import com.vipha.cms.feature.auth.dto.RefreshRequest;
@@ -17,9 +20,11 @@ import com.vipha.cms.security.Roles;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -29,10 +34,18 @@ public class AuthServiceImpl implements AuthService {
     private static final String PATIENT_GROUP = "patient-management";
     private static final List<String> RESET_ACTIONS = List.of("UPDATE_PASSWORD");
     private static final int RESET_LINK_LIFESPAN_SECONDS = 3_600;
+    private static final String GOOGLE = "google";
+    /** Where Keycloak sends the browser back after Google, on each frontend origin. */
+    private static final String CALLBACK_PATH = "/auth/callback";
+    /** A user holding none of these has never used the clinic before. */
+    private static final List<String> CLINIC_ROLES = List.of(Roles.PATIENT, Roles.ADMIN, Roles.DOCTOR,
+            Roles.NURSE, Roles.RECEPTIONIST, Roles.PHARMACIST, Roles.LAB_TECHNICIAN);
 
     private final KeycloakUserService keycloakUserService;
     private final KeycloakAuthClient keycloakAuthClient;
     private final UserProfileRepository userProfileRepository;
+    private final FrontendProperties frontend;
+    private final JwtDecoder jwtDecoder;
 
     @Override
     public void register(RegisterRequest request) {
@@ -121,6 +134,41 @@ public class AuthServiceImpl implements AuthService {
 
         keycloakUserService.resetPassword(userId, request.newPassword());
         log.info("User {} changed their password", userId);
+    }
+
+    @Override
+    public GoogleSignInOptions googleOptions() {
+        return new GoogleSignInOptions(
+                keycloakUserService.hasIdentityProvider(GOOGLE),
+                keycloakAuthClient.authorizationEndpoint(),
+                keycloakAuthClient.clientId());
+    }
+
+    /**
+     * Someone new to the clinic becomes a patient, as if they had registered; anyone else (a
+     * patient or staff member who linked Google to their account) keeps what they have.
+     */
+    @Override
+    public TokenResponse signInWithGoogle(GoogleSignInRequest request) {
+        if (frontend.allowedOrigins().stream().noneMatch(origin -> request.redirectUri().equals(origin + CALLBACK_PATH))) {
+            throw new BusinessRuleException("Sign-in must return to the clinic's website");
+        }
+        TokenResponse tokens = keycloakAuthClient.exchangeCode(
+                request.code(), request.codeVerifier(), request.redirectUri());
+
+        String userId = jwtDecoder.decode(tokens.accessToken()).getSubject();
+        Set<String> roles = keycloakUserService.realmRoleNames(userId);
+        if (CLINIC_ROLES.stream().noneMatch(roles::contains)) {
+            keycloakUserService.assignRealmRoles(userId, Roles.PATIENT);
+            keycloakUserService.joinGroup(userId, PATIENT_GROUP);
+            if (!userProfileRepository.existsById(userId)) {
+                saveUserProfile(userId);
+            }
+            log.info("Patient {} joined through Google", userId);
+            // the first tokens were made before the roles; fresh ones carry them
+            tokens = keycloakAuthClient.refresh(tokens.refreshToken());
+        }
+        return tokens;
     }
 
     private void saveUserProfile(String userId) {

@@ -5,6 +5,7 @@
 #     as a composite role
 #   - the patient-management group that self-registered patients join
 #   - the backend and frontend clients, their login flows and token scopes
+#   - sign-in with Google, once GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET are in .env
 #
 # Safe to re-run: mappings are synced, so a permission removed here is also
 # removed in Keycloak. Reads the Keycloak admin login from .env next to it.
@@ -17,7 +18,7 @@ cd "$(dirname "$0")"
 
 KEYCLOAK_URL="${KEYCLOAK_URL:-http://localhost:1201}"
 REALM="${KEYCLOAK_REALM:-clinic}"
-BACKEND_CLIENT="private-app"   # the Spring API: password login + admin API through its service account
+BACKEND_CLIENT="private-app"   # the Spring API: password login, Google sign-in, admin API (service account)
 FRONTEND_CLIENT="cms-app"      # a browser/mobile app: authorization code flow with PKCE
 FRONTEND_ORIGINS='["http://localhost:5173", "http://localhost:3000"]'
 PATIENT_GROUP="patient-management"
@@ -38,8 +39,8 @@ REALM_DISPLAY_NAME="CMS Clinic"
 DEFAULT_SCOPES="basic roles"
 
 # realm-management roles the backend's service account needs to create users,
-# assign their roles and add them to groups
-SERVICE_ACCOUNT_ROLES="manage-users view-users query-users query-groups view-realm"
+# assign their roles and add them to groups, and to see whether Google sign-in is set up
+SERVICE_ACCOUNT_ROLES="manage-users view-users query-users query-groups view-realm view-identity-providers"
 
 # ─── Roles ────────────────────────────────────────────────────────────────────
 
@@ -258,13 +259,15 @@ BACKEND_ID=$(client_uuid "$BACKEND_CLIENT")
 update_client "$BACKEND_ID" '
     .publicClient = false
   | .clientAuthenticatorType = "client-secret"
-  | .standardFlowEnabled = false          # no browser redirects through the API client
+  | .standardFlowEnabled = true           # sign-in with Google: the API exchanges the code
   | .implicitFlowEnabled = false
   | .directAccessGrantsEnabled = true     # POST /api/v1/auth/login (password grant)
   | .serviceAccountsEnabled = true        # admin API: create users, assign roles, join groups
   | .fullScopeAllowed = false             # tokens carry only the roles in its scope (below)
-  | .redirectUris = []
-  | .webOrigins = []'
+  | .redirectUris = ($origins | map(. + "/auth/callback"))   # only back to the callback page of the website
+  | .webOrigins = []
+  | .attributes["pkce.code.challenge.method"] = "S256"' \
+  --argjson origins "$FRONTEND_ORIGINS"
 
 echo "==> Client $FRONTEND_CLIENT"
 ensure_client "$FRONTEND_CLIENT"
@@ -317,6 +320,29 @@ sync_roles "realm-management roles" "$R/users/$SA_ID/role-mappings/clients/$RM_I
 # shellcheck disable=SC2086
 sync_roles "$BACKEND_CLIENT scope (realm-management)" "$R/clients/$BACKEND_ID/scope-mappings/clients/$RM_ID" \
            "$R/clients/$BACKEND_ID/scope-mappings/clients/$RM_ID" "$RM_ROLES" $SERVICE_ACCOUNT_ROLES
+
+echo "==> Sign in with Google"
+GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-$(env_value GOOGLE_CLIENT_ID)}
+GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-$(env_value GOOGLE_CLIENT_SECRET)}
+if [[ -z $GOOGLE_CLIENT_ID || -z $GOOGLE_CLIENT_SECRET ]]; then
+  echo "  skipped: put GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in .env to offer it"
+else
+  # trustEmail: Google has checked the address. The first broker login flow links a Google
+  # account to an existing user with the same email once they prove it is theirs.
+  IDP=$(jq -n --arg id "$GOOGLE_CLIENT_ID" --arg secret "$GOOGLE_CLIENT_SECRET" '{
+      alias: "google", providerId: "google", enabled: true, trustEmail: true,
+      firstBrokerLoginFlowAlias: "first broker login",
+      config: {clientId: $id, clientSecret: $secret, defaultScope: "openid profile email", syncMode: "IMPORT"}}')
+  if [[ -z $(request GET "$R/identity-provider/instances/google") ]]; then
+    request POST "$R/identity-provider/instances" "$IDP" >/dev/null
+    echo "  + google"
+  else
+    request PUT "$R/identity-provider/instances/google" "$IDP" >/dev/null
+    echo "  ~ google"
+  fi
+  echo "  Google's OAuth client needs this authorized redirect URI:"
+  echo "  $KEYCLOAK_URL/realms/$REALM/broker/google/endpoint"
+fi
 
 echo "==> Done"
 if [[ $BACKEND_CREATED == true ]]; then

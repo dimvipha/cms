@@ -3,6 +3,8 @@ package com.vipha.cms.security;
 import com.vipha.cms.common.FrontendProperties;
 import com.vipha.cms.common.exception.BusinessRuleException;
 import jakarta.ws.rs.BadRequestException;
+import jakarta.ws.rs.ForbiddenException;
+import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.ProcessingException;
 import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.Response;
@@ -27,6 +29,8 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -119,6 +123,28 @@ public class KeycloakUserService {
                 .map(name -> realmResource().roles().get(name).toRepresentation())
                 .toList();
         user.roles().realmLevel().add(roles);
+    }
+
+    /** The user's realm roles, given directly or through a group. */
+    public Set<String> realmRoleNames(String userId) {
+        return users().get(userId).roles().realmLevel().listEffective().stream()
+                .map(RoleRepresentation::getName)
+                .collect(Collectors.toSet());
+    }
+
+    /**
+     * Whether the realm offers sign-in through this identity provider, e.g. "google". Without the
+     * view-identity-providers role (keycloak_setup.sh grants it) the answer is no, not an error.
+     */
+    public boolean hasIdentityProvider(String alias) {
+        try {
+            return Boolean.TRUE.equals(realmResource().identityProviders().get(alias).toRepresentation().isEnabled());
+        } catch (NotFoundException ex) {
+            return false;
+        } catch (ForbiddenException ex) {
+            log.warn("Cannot see identity provider {}: re-run deployment/keycloak_setup.sh", alias);
+            return false;
+        }
     }
 
     public void joinGroup(String userId, String groupName) {

@@ -2,6 +2,8 @@ package com.vipha.cms.feature.auth;
 
 import com.vipha.cms.feature.auth.dto.ChangePasswordRequest;
 import com.vipha.cms.feature.auth.dto.ForgotPasswordRequest;
+import com.vipha.cms.feature.auth.dto.GoogleSignInOptions;
+import com.vipha.cms.feature.auth.dto.GoogleSignInRequest;
 import com.vipha.cms.feature.auth.dto.LoginRequest;
 import com.vipha.cms.feature.auth.dto.LogoutRequest;
 import com.vipha.cms.feature.auth.dto.RefreshRequest;
@@ -39,6 +41,18 @@ public class AuthController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void logout(@Valid @RequestBody LogoutRequest request) {
         authService.logout(request);
+    }
+
+    /** Whether sign-in with Google is set up, and where the browser starts it. */
+    @GetMapping("/google")
+    public GoogleSignInOptions googleOptions() {
+        return authService.googleOptions();
+    }
+
+    /** Finishes sign-in with Google: the code Keycloak sent back to the frontend, for the app's tokens. */
+    @PostMapping("/google")
+    public TokenResponse signInWithGoogle(@Valid @RequestBody GoogleSignInRequest request) {
+        return authService.signInWithGoogle(request);
     }
 
     /** Always 202, whether or not the email has an account. */
