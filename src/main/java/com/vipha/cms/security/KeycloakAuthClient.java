@@ -20,7 +20,6 @@ public class KeycloakAuthClient {
     private final RestClient restClient;
     private final String tokenEndpoint;
     private final String logoutEndpoint;
-    private final String authorizationEndpoint;
     private final String clientId;
     private final String clientSecret;
 
@@ -28,16 +27,13 @@ public class KeycloakAuthClient {
             @Value("${keycloak.server-url}") String serverUrl,
             @Value("${keycloak.realm}") String realm,
             @Value("${keycloak.client-id}") String clientId,
-            @Value("${keycloak.client-secret}") String clientSecret,
-            // the address browsers reach Keycloak on, when it differs from the one the API uses
-            @Value("${keycloak.public-url:${keycloak.server-url}}") String publicUrl
+            @Value("${keycloak.client-secret}") String clientSecret
     ) {
         this.clientId = clientId;
         this.clientSecret = clientSecret;
         String base = serverUrl + "/realms/" + realm + "/protocol/openid-connect";
         this.tokenEndpoint = base + "/token";
         this.logoutEndpoint = base + "/logout";
-        this.authorizationEndpoint = publicUrl + "/realms/" + realm + "/protocol/openid-connect/auth";
         this.restClient = RestClient.create();
     }
 
@@ -49,30 +45,6 @@ public class KeycloakAuthClient {
         form.add("username", username);
         form.add("password", password);
         return exchangeToken(form, "Invalid username or password");
-    }
-
-    /**
-     * Finishes a browser sign-in (authorization code flow with PKCE): the code Keycloak sent to
-     * the frontend's redirect URI, exchanged with this client's secret.
-     */
-    public TokenResponse exchangeCode(String code, String codeVerifier, String redirectUri) {
-        MultiValueMap<String, String> form = new LinkedMultiValueMap<>();
-        form.add("grant_type", "authorization_code");
-        form.add("client_id", clientId);
-        form.add("client_secret", clientSecret);
-        form.add("code", code);
-        form.add("code_verifier", codeVerifier);
-        form.add("redirect_uri", redirectUri);
-        return exchangeToken(form, "Sign-in did not finish. Please try again.");
-    }
-
-    /** Where a browser starts a sign-in with this client. */
-    public String authorizationEndpoint() {
-        return authorizationEndpoint;
-    }
-
-    public String clientId() {
-        return clientId;
     }
 
     public TokenResponse refresh(String refreshToken) {

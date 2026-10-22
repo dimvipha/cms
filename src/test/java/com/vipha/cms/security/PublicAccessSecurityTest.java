@@ -8,16 +8,16 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
-import org.springframework.http.MediaType;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-/** What visitors who are not signed in may call: the landing page's directory and Google sign-in. */
+/** What visitors who are not signed in may call: the landing page's directory and the sign-in options. */
 @WebMvcTest(controllers = {AuthController.class, ClinicDirectoryController.class})
 @Import(SecurityConfig.class)
 class PublicAccessSecurityTest {
@@ -34,11 +34,15 @@ class PublicAccessSecurityTest {
     }
 
     @Test
-    void visitorsCanStartAndFinishSignInWithGoogle() throws Exception {
+    void visitorsCanAskWhetherGoogleIsOffered() throws Exception {
         mvc.perform(get("/api/v1/auth/google")).andExpect(status().isOk());
-        mvc.perform(post("/api/v1/auth/google").contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"code\":\"c\",\"codeVerifier\":\"v\",\"redirectUri\":\"http://localhost:5173/auth/callback\"}"))
-                .andExpect(status().isOk());
+    }
+
+    @Test
+    void welcomingANewcomerNeedsTheirLogin() throws Exception {
+        mvc.perform(post("/api/v1/auth/welcome")).andExpect(status().isUnauthorized());
+        // a newcomer's token holds no clinic role yet; being signed in is enough
+        mvc.perform(post("/api/v1/auth/welcome").with(jwt())).andExpect(status().isOk());
     }
 
     @Test

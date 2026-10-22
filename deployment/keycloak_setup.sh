@@ -18,7 +18,7 @@ cd "$(dirname "$0")"
 
 KEYCLOAK_URL="${KEYCLOAK_URL:-http://localhost:1201}"
 REALM="${KEYCLOAK_REALM:-clinic}"
-BACKEND_CLIENT="private-app"   # the Spring API: password login, Google sign-in, admin API (service account)
+BACKEND_CLIENT="private-app"   # the Spring API: password login + admin API through its service account
 FRONTEND_CLIENT="cms-app"      # a browser/mobile app: authorization code flow with PKCE
 FRONTEND_ORIGINS='["http://localhost:5173", "http://localhost:3000"]'
 PATIENT_GROUP="patient-management"
@@ -217,6 +217,16 @@ if [[ $(jq -r '"\(.emailTheme)|\(.displayName)"' <<<"$REALM_REP") != "$EMAIL_THE
   echo "  email theme -> $EMAIL_THEME, display name -> $REALM_DISPLAY_NAME"
 fi
 
+echo "==> Sign-in page"
+# the web app signs everyone in on Keycloak's page (FRONTEND_CLIENT): patients sign up there with
+# their email as username and reset forgotten passwords there; the login theme is left as it is
+LOGIN=$(jq -n '{registrationAllowed: true, registrationEmailAsUsername: true,
+                loginWithEmailAllowed: true, resetPasswordAllowed: true}')
+if [[ $(jq -c '{registrationAllowed, registrationEmailAsUsername, loginWithEmailAllowed, resetPasswordAllowed}' <<<"$REALM_REP") != "$(jq -c . <<<"$LOGIN")" ]]; then
+  request PUT "$R" "$LOGIN" >/dev/null
+  echo "  sign-up, email login and password reset on"
+fi
+
 echo "==> Roles"
 for entry in "${BASE_ROLES[@]}" "${PERMISSIONS[@]}"; do
   name=${entry%%|*}
@@ -259,15 +269,14 @@ BACKEND_ID=$(client_uuid "$BACKEND_CLIENT")
 update_client "$BACKEND_ID" '
     .publicClient = false
   | .clientAuthenticatorType = "client-secret"
-  | .standardFlowEnabled = true           # sign-in with Google: the API exchanges the code
+  | .standardFlowEnabled = false          # browsers sign in through the frontend client
   | .implicitFlowEnabled = false
-  | .directAccessGrantsEnabled = true     # POST /api/v1/auth/login (password grant)
+  | .directAccessGrantsEnabled = true     # POST /api/v1/auth/login (password grant, API clients)
   | .serviceAccountsEnabled = true        # admin API: create users, assign roles, join groups
   | .fullScopeAllowed = false             # tokens carry only the roles in its scope (below)
-  | .redirectUris = ($origins | map(. + "/auth/callback"))   # only back to the callback page of the website
+  | .redirectUris = []
   | .webOrigins = []
-  | .attributes["pkce.code.challenge.method"] = "S256"' \
-  --argjson origins "$FRONTEND_ORIGINS"
+  | del(.attributes["pkce.code.challenge.method"])'
 
 echo "==> Client $FRONTEND_CLIENT"
 ensure_client "$FRONTEND_CLIENT"

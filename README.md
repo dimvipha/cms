@@ -543,22 +543,28 @@ The realm is imported automatically from `docker/keycloak/clinic-realm.json`. To
 
 Step 5 is not optional — without it Spring rejects every token on audience validation.
 
-### Sign in with Google
+### Sign-in from the web app
 
-Keycloak brokers Google; the API finishes the sign-in so the app's tokens, refresh and logout work as
-for a password login. To turn it on:
+The web app signs everyone in on Keycloak's own page through the public `cms-app` client:
+authorization code flow with PKCE, then the browser exchanges the code, refreshes and logs out with
+Keycloak directly. Keycloak's page also handles sign-up (email as username), forgotten passwords and
+Google. After each sign-in the app calls `POST /api/v1/auth/welcome`: someone new to the clinic
+becomes a patient (role, patient group and profile), as with `/register`, and the app fetches fresh
+tokens carrying the role. `deployment/keycloak_setup.sh` sets this up: `cms-app`'s redirect URIs and
+web origins (each frontend origin), and sign-up, email login and password reset on the realm. It
+leaves the realm's login theme as it is. `POST /api/v1/auth/login` (password grant through
+`private-app`) stays for API clients such as the Postman collection.
+
+To add Google:
 
 1. In Google Cloud, create an OAuth client (type *Web application*) whose authorized redirect URI is
    `http://localhost:1201/realms/clinic/broker/google/endpoint` (the Keycloak address and realm).
 2. Put its ID and secret in `deployment/.env` as `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`.
-3. Run `deployment/keycloak_setup.sh`. It adds the Google identity provider and lets `private-app`
-   finish browser sign-ins that return to each frontend origin's `/auth/callback`.
+3. Run `deployment/keycloak_setup.sh`, which adds the Google identity provider.
 
-`GET /api/v1/auth/google` then reports `enabled: true`, and the frontend shows *Continue with Google*.
-The browser goes to Keycloak with PKCE and `kc_idp_hint=google`; `POST /api/v1/auth/google` exchanges
-the returned code for tokens. Someone new becomes a patient (role, patient group and profile), as with
-`/register`; a Google account whose email matches an existing user is linked once that user proves the
-account is theirs, and keeps its roles.
+`GET /api/v1/auth/google` then reports `enabled: true` and the app shows *Continue with Google*, which
+opens Keycloak with `kc_idp_hint=google`. A Google account whose email matches an existing user is
+linked once that user proves the account is theirs, and keeps its roles.
 
 ### Get a token
 
