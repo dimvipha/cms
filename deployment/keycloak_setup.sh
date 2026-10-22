@@ -331,8 +331,9 @@ sync_roles "$BACKEND_CLIENT scope (realm-management)" "$R/clients/$BACKEND_ID/sc
            "$R/clients/$BACKEND_ID/scope-mappings/clients/$RM_ID" "$RM_ROLES" $SERVICE_ACCOUNT_ROLES
 
 echo "==> Sign in with Google"
-GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-$(env_value GOOGLE_CLIENT_ID)}
-GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-$(env_value GOOGLE_CLIENT_SECRET)}
+# optional: a .env without them is fine (grep finds nothing, which pipefail would treat as an error)
+GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-$(env_value GOOGLE_CLIENT_ID || true)}
+GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-$(env_value GOOGLE_CLIENT_SECRET || true)}
 if [[ -z $GOOGLE_CLIENT_ID || -z $GOOGLE_CLIENT_SECRET ]]; then
   echo "  skipped: put GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in .env to offer it"
 else
