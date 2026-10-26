@@ -639,8 +639,3 @@ SPRING_PROFILES_ACTIVE=prod                                                 # pa
 - Roles and permissions change in `deployment/keycloak_setup.sh` first, then in `SecurityConfig`.
 
 ---
-
-## Author
-
-*Your name — Student ID — Course — Institution*
-*Supervisor: ...*
