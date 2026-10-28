@@ -112,6 +112,7 @@ PERMISSIONS=(
   "appointment:write-all|Book, change, check in and mark no-shows for any patient"
   "visit:read|Read visits"
   "visit:write|Start, update and close visits"
+  "visit:open|Open a visit for a checked-in patient or a walk-in, without treating them"
   "vitals:write|Record vital signs"
   "prescription:read|Read and print prescriptions"
   "prescription:write|Write prescriptions"
@@ -134,9 +135,9 @@ role_permissions() {
                           appointment:read visit:read visit:write vitals:write
                           prescription:read prescription:write medicine:read" ;;
     NURSE)          echo "department:read doctor:read patient:read-all patient:update-all appointment:read-all
-                          visit:read vitals:write prescription:read medicine:read" ;;
+                          visit:read visit:open vitals:write prescription:read medicine:read" ;;
     RECEPTIONIST)   echo "department:read doctor:read patient:read-all patient:write-all patient:update-all
-                          appointment:read-all appointment:write-all invoice:read invoice:write payment:record" ;;
+                          appointment:read-all appointment:write-all visit:open invoice:read invoice:write payment:record" ;;
     PHARMACIST)     echo "patient:read-all prescription:read medicine:read medicine:write invoice:read payment:record" ;;
     LAB_TECHNICIAN) echo "patient:read-all visit:read" ;;
     PATIENT)        echo "" ;;   # patients get theirs from the patient-management group

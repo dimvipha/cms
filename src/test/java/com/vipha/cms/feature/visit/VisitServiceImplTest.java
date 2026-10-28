@@ -134,6 +134,53 @@ class VisitServiceImplTest {
                 .hasMessageContaining("patientId is required");
     }
 
+    // ── opening a visit without treating (visit:open: nurse, front desk) ──
+
+    @Test
+    void openOnly_opensACheckedInPatientsVisitWithTheirDoctor() {
+        TestAuth.loginAs("nurse-1", Roles.NURSE, "visit:open", "vitals:write");
+        Appointment appointment = appointment(AppointmentStatus.CHECKED_IN);
+        when(appointmentRepository.findById(appointment.getId())).thenReturn(Optional.of(appointment));
+        when(visitRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        VisitResponse response = service.create(new CreateVisitRequest(appointment.getId(), null, null, null));
+
+        assertThat(response.doctorId()).isEqualTo(DOCTOR_ID);
+        assertThat(response.status()).isEqualTo(VisitStatus.OPEN);
+        assertThat(appointment.getStatus()).isEqualTo(AppointmentStatus.IN_PROGRESS);
+    }
+
+    @Test
+    void openOnly_waitsForTheCheckIn() {
+        TestAuth.loginAs("nurse-1", Roles.NURSE, "visit:open");
+        Appointment appointment = appointment(AppointmentStatus.SCHEDULED);
+        when(appointmentRepository.findById(appointment.getId())).thenReturn(Optional.of(appointment));
+
+        assertThatThrownBy(() -> service.create(new CreateVisitRequest(appointment.getId(), null, null, null)))
+                .isInstanceOf(BusinessRuleException.class)
+                .hasMessageContaining("checked in");
+        verify(visitRepository, never()).save(any());
+    }
+
+    @Test
+    void openOnly_walkInNamesItsDoctor() {
+        TestAuth.loginAs("reception-1", Roles.RECEPTIONIST, "visit:open");
+        Patient patient = patient();
+        when(patientRepository.findById(patient.getId())).thenReturn(Optional.of(patient));
+
+        assertThatThrownBy(() -> service.create(new CreateVisitRequest(null, patient.getId(), null, "Fever")))
+                .isInstanceOf(BusinessRuleException.class)
+                .hasMessageContaining("doctorId is required");
+
+        when(doctorRepository.findById(OTHER_DOCTOR_ID)).thenReturn(Optional.of(doctor(OTHER_DOCTOR_ID)));
+        when(visitRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        VisitResponse response = service.create(new CreateVisitRequest(null, patient.getId(), OTHER_DOCTOR_ID, "Fever"));
+
+        assertThat(response.doctorId()).isEqualTo(OTHER_DOCTOR_ID);
+        assertThat(response.appointmentId()).isNull();
+        assertThat(response.status()).isEqualTo(VisitStatus.OPEN);
+    }
+
     @Test
     void createWalkIn_defaultsDoctorToCaller() {
         Patient patient = patient();

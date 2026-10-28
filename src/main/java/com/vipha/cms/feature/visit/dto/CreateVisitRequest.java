@@ -6,7 +6,9 @@ import java.util.UUID;
 
 /**
  * Either start from an appointment (patient and doctor are taken from it) or
- * register a walk-in by giving patientId. doctorId defaults to the caller.
+ * register a walk-in by giving patientId. doctorId defaults to the caller, except for
+ * callers who may only open visits (visit:open): they name the doctor, and an appointment's
+ * patient must have checked in.
  */
 public record CreateVisitRequest(
         UUID appointmentId,

@@ -19,6 +19,7 @@ import com.vipha.cms.feature.visit.dto.VisitSummaryResponse;
 import com.vipha.cms.feature.visit.dto.VitalSignResponse;
 import com.vipha.cms.feature.visit.util.VisitSpecs;
 import com.vipha.cms.security.AuthUtils;
+import com.vipha.cms.security.Permissions;
 import com.vipha.cms.security.Roles;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -192,6 +193,9 @@ public class VisitServiceImpl implements VisitService {
             throw new BusinessRuleException(
                     "Cannot start a visit from an appointment that is " + appointment.getStatus());
         }
+        if (opensOnly() && appointment.getStatus() != AppointmentStatus.CHECKED_IN) {
+            throw new BusinessRuleException("The patient must be checked in before their visit is opened");
+        }
         if (request.patientId() != null && !request.patientId().equals(appointment.getPatient().getId())) {
             throw new BusinessRuleException("Patient does not match the appointment");
         }
@@ -217,12 +221,24 @@ public class VisitServiceImpl implements VisitService {
             throw new BusinessRuleException("Patient account is inactive");
         }
 
+        if (opensOnly() && !StringUtils.hasText(request.doctorId())) {
+            throw new BusinessRuleException("doctorId is required to register a walk-in");
+        }
         String doctorId = StringUtils.hasText(request.doctorId()) ? request.doctorId() : AuthUtils.extractUserId();
         Doctor doctor = doctorRepository.findById(doctorId)
                 .orElseThrow(() -> new ResourceNotFoundException("Doctor not found"));
 
         visit.setPatient(patient);
         visit.setDoctor(doctor);
+    }
+
+    /**
+     * The caller may open visits but not treat patients (visit:open without visit:write): a nurse
+     * opening a checked-in patient's visit to take vitals, or the front desk registering a walk-in
+     * for a doctor. The doctor's own Start does the same with fewer limits.
+     */
+    private static boolean opensOnly() {
+        return AuthUtils.hasAuthority(Permissions.VISIT_OPEN) && !AuthUtils.hasAuthority(Permissions.VISIT_WRITE);
     }
 
     private Visit getVisit(UUID id) {

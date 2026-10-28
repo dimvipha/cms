@@ -10,6 +10,8 @@ public final class Permissions {
     public static final String APPOINTMENT_READ_ALL  = "appointment:read-all";
     public static final String APPOINTMENT_WRITE_ALL = "appointment:write-all";
     public static final String DOCTOR_WRITE          = "doctor:write";
+    public static final String VISIT_WRITE           = "visit:write";
+    public static final String VISIT_OPEN            = "visit:open";
 
     private Permissions() {}
 }

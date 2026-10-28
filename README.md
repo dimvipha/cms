@@ -242,6 +242,7 @@ table and keeps Keycloak in line with it.
 | `appointment:write-all` | Book, change, check in and mark no-shows for any patient | ✓ | | | ✓ | | | |
 | `visit:read` | Read visits | ✓ | ✓ | ✓ | | | ✓ | |
 | `visit:write` | Start, update and close visits | ✓ | ✓ | | | | | |
+| `visit:open` | Open a visit for a checked-in patient or a walk-in, without treating them | ✓ | | ✓ | ✓ | | | |
 | `vitals:write` | Record vital signs | ✓ | ✓ | ✓ | | | | |
 | `prescription:read` | Read and print prescriptions | ✓ | ✓ | ✓ | | ✓ | | |
 | `prescription:write` | Write prescriptions | ✓ | ✓ | | | | | |
@@ -342,7 +343,7 @@ Swagger (`/swagger-ui.html`, `/v3/api-docs`). The access rules are URL rules in
 | Method | Path | Needs |
 |---|---|---|
 | `GET` | `/visits` · `/visits/me` (the doctor's own) · `/visits/{id}` | `visit:read` |
-| `POST` | `/visits` (from `appointmentId`, or a walk-in `patientId`) | `visit:write` |
+| `POST` | `/visits` (from `appointmentId`, or a walk-in `patientId`) | `visit:write`, or `visit:open` for a checked-in patient or a walk-in naming its doctor |
 | `PATCH` | `/visits/{id}` (complaint, ICD-10 code, diagnosis, notes) | `visit:write` |
 | `POST` | `/visits/{id}/start` · `/complete` · `/cancel` | `visit:write` |
 | `POST` | `/visits/{id}/vitals` | `vitals:write` |
@@ -382,6 +383,9 @@ specialty and a schedule.
 
 - Opened from a scheduled, confirmed or checked-in appointment (one visit each, and the appointment
   moves to in progress), or as a walk-in.
+- Nurses and the front desk may open visits without treating (`visit:open`): a nurse opens a
+  checked-in patient's visit to take vital signs before the doctor sees them, and the front desk
+  registers a walk-in for a named doctor. The doctor then starts the visit from their waiting list.
 - Open → in progress → completed, or cancelled from either; completing needs a diagnosis and
   completes the appointment. Closed visits are read-only.
 - Vital signs need at least one measurement, systolic above diastolic, and an open visit; BMI is

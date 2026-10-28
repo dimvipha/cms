@@ -40,9 +40,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class ConsultationSecurityTest {
 
     private static final String DOCTOR = "visit:read visit:write vitals:write prescription:read prescription:write medicine:read";
-    private static final String NURSE = "visit:read vitals:write prescription:read medicine:read";
+    private static final String NURSE = "visit:read visit:open vitals:write prescription:read medicine:read";
     private static final String PHARMACIST = "prescription:read medicine:read";
-    private static final String RECEPTIONIST = "patient:read-all appointment:read appointment:write";
+    private static final String RECEPTIONIST = "patient:read-all appointment:read appointment:write visit:open";
+    private static final String LAB_TECHNICIAN = "patient:read-all visit:read";
 
     private static final String VITALS = "{\"systolicBp\":120,\"diastolicBp\":80}";
     private static final String PRESCRIPTION = """
@@ -64,13 +65,17 @@ class ConsultationSecurityTest {
     }
 
     @Test
-    void nurseCanRecordVitalsButNotRunTheConsultation() throws Exception {
+    void nurseCanOpenAVisitAndRecordVitalsButNotRunTheConsultation() throws Exception {
+        mvc.perform(post("/api/v1/visits").with(as(NURSE)).contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isCreated());
         mvc.perform(post("/api/v1/visits/{id}/vitals", id).with(as(NURSE)).contentType(MediaType.APPLICATION_JSON).content(VITALS))
                 .andExpect(status().isCreated());
         mvc.perform(get("/api/v1/visits/{id}", id).with(as(NURSE)))
                 .andExpect(status().isOk());
 
-        mvc.perform(post("/api/v1/visits").with(as(NURSE)).contentType(MediaType.APPLICATION_JSON).content("{}"))
+        mvc.perform(post("/api/v1/visits/{id}/start", id).with(as(NURSE)))
+                .andExpect(status().isForbidden());
+        mvc.perform(post("/api/v1/visits/{id}/cancel", id).with(as(NURSE)))
                 .andExpect(status().isForbidden());
         mvc.perform(patch("/api/v1/visits/{id}", id).with(as(NURSE)).contentType(MediaType.APPLICATION_JSON).content("{}"))
                 .andExpect(status().isForbidden());
@@ -116,10 +121,21 @@ class ConsultationSecurityTest {
     }
 
     @Test
-    void receptionistSeesNoClinicalData() throws Exception {
+    void receptionistRegistersWalkInsButSeesNoClinicalData() throws Exception {
+        mvc.perform(post("/api/v1/visits").with(as(RECEPTIONIST)).contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isCreated());
+        mvc.perform(post("/api/v1/visits/{id}/start", id).with(as(RECEPTIONIST))).andExpect(status().isForbidden());
+        mvc.perform(post("/api/v1/visits/{id}/vitals", id).with(as(RECEPTIONIST)).contentType(MediaType.APPLICATION_JSON).content(VITALS))
+                .andExpect(status().isForbidden());
         mvc.perform(get("/api/v1/visits").with(as(RECEPTIONIST))).andExpect(status().isForbidden());
         mvc.perform(get("/api/v1/prescriptions/{id}", id).with(as(RECEPTIONIST))).andExpect(status().isForbidden());
         mvc.perform(get("/api/v1/medicines").with(as(RECEPTIONIST))).andExpect(status().isForbidden());
+    }
+
+    @Test
+    void labTechnicianCannotOpenVisits() throws Exception {
+        mvc.perform(post("/api/v1/visits").with(as(LAB_TECHNICIAN)).contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isForbidden());
     }
 
     @Test

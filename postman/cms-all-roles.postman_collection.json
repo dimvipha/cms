@@ -392,9 +392,9 @@
                   "    const roles = claims.realm_access.roles;",
                   "    pm.collectionVariables.set('adminToken', json.access_token);",
                   "    pm.collectionVariables.set('adminId', claims.sub);",
-                  "    pm.test('token has role ADMIN and exactly its 28 permissions', () => {",
+                  "    pm.test('token has role ADMIN and exactly its 29 permissions', () => {",
                   "        pm.expect(roles).to.include('ADMIN');",
-                  "        pm.expect(roles.filter(r => r.includes(':')).sort()).to.eql([\"appointment:read\", \"appointment:read-all\", \"appointment:write\", \"appointment:write-all\", \"department:delete\", \"department:read\", \"department:update\", \"department:write\", \"doctor:delete\", \"doctor:read\", \"doctor:update\", \"doctor:write\", \"invoice:read\", \"invoice:write\", \"medicine:read\", \"medicine:write\", \"patient:read\", \"patient:read-all\", \"patient:update\", \"patient:update-all\", \"patient:write\", \"patient:write-all\", \"payment:record\", \"prescription:read\", \"prescription:write\", \"visit:read\", \"visit:write\", \"vitals:write\"]);",
+                  "        pm.expect(roles.filter(r => r.includes(':')).sort()).to.eql([\"appointment:read\", \"appointment:read-all\", \"appointment:write\", \"appointment:write-all\", \"department:delete\", \"department:read\", \"department:update\", \"department:write\", \"doctor:delete\", \"doctor:read\", \"doctor:update\", \"doctor:write\", \"invoice:read\", \"invoice:write\", \"medicine:read\", \"medicine:write\", \"patient:read\", \"patient:read-all\", \"patient:update\", \"patient:update-all\", \"patient:write\", \"patient:write-all\", \"payment:record\", \"prescription:read\", \"prescription:write\", \"visit:open\", \"visit:read\", \"visit:write\", \"vitals:write\"]);",
                   "    });",
                   "    pm.test('token is for the clinic API (aud)', () => {",
                   "        pm.expect([].concat(claims.aud)).to.include(pm.collectionVariables.get('apiAudience'));",
@@ -581,9 +581,9 @@
                   "    const roles = claims.realm_access.roles;",
                   "    pm.collectionVariables.set('nurseToken', json.access_token);",
                   "    pm.collectionVariables.set('nurseId', claims.sub);",
-                  "    pm.test('token has role NURSE and exactly its 9 permissions', () => {",
+                  "    pm.test('token has role NURSE and exactly its 10 permissions', () => {",
                   "        pm.expect(roles).to.include('NURSE');",
-                  "        pm.expect(roles.filter(r => r.includes(':')).sort()).to.eql([\"appointment:read-all\", \"department:read\", \"doctor:read\", \"medicine:read\", \"patient:read-all\", \"patient:update-all\", \"prescription:read\", \"visit:read\", \"vitals:write\"]);",
+                  "        pm.expect(roles.filter(r => r.includes(':')).sort()).to.eql([\"appointment:read-all\", \"department:read\", \"doctor:read\", \"medicine:read\", \"patient:read-all\", \"patient:update-all\", \"prescription:read\", \"visit:open\", \"visit:read\", \"vitals:write\"]);",
                   "    });",
                   "    pm.test('token is for the clinic API (aud)', () => {",
                   "        pm.expect([].concat(claims.aud)).to.include(pm.collectionVariables.get('apiAudience'));",
@@ -633,9 +633,9 @@
                   "    const roles = claims.realm_access.roles;",
                   "    pm.collectionVariables.set('receptionToken', json.access_token);",
                   "    pm.collectionVariables.set('receptionId', claims.sub);",
-                  "    pm.test('token has role RECEPTIONIST and exactly its 10 permissions', () => {",
+                  "    pm.test('token has role RECEPTIONIST and exactly its 11 permissions', () => {",
                   "        pm.expect(roles).to.include('RECEPTIONIST');",
-                  "        pm.expect(roles.filter(r => r.includes(':')).sort()).to.eql([\"appointment:read-all\", \"appointment:write-all\", \"department:read\", \"doctor:read\", \"invoice:read\", \"invoice:write\", \"patient:read-all\", \"patient:update-all\", \"patient:write-all\", \"payment:record\"]);",
+                  "        pm.expect(roles.filter(r => r.includes(':')).sort()).to.eql([\"appointment:read-all\", \"appointment:write-all\", \"department:read\", \"doctor:read\", \"invoice:read\", \"invoice:write\", \"patient:read-all\", \"patient:update-all\", \"patient:write-all\", \"payment:record\", \"visit:open\"]);",
                   "    });",
                   "    pm.test('token is for the clinic API (aud)', () => {",
                   "        pm.expect([].concat(claims.aud)).to.include(pm.collectionVariables.get('apiAudience'));",
@@ -4550,7 +4550,7 @@
               ]
             },
             {
-              "name": "visit:write · POST /visits",
+              "name": "visit:write or visit:open · POST /visits",
               "request": {
                 "method": "POST",
                 "header": [
@@ -5375,7 +5375,7 @@
               ]
             },
             {
-              "name": "visit:write · POST /visits",
+              "name": "visit:write or visit:open · POST /visits",
               "request": {
                 "method": "POST",
                 "header": [
@@ -6200,7 +6200,7 @@
               ]
             },
             {
-              "name": "visit:write · POST /visits",
+              "name": "visit:write or visit:open · POST /visits",
               "request": {
                 "method": "POST",
                 "header": [
@@ -6227,7 +6227,7 @@
                   "script": {
                     "type": "text/javascript",
                     "exec": [
-                      "pm.test('403 (lacks visit:write)', () => pm.response.to.have.status(403));"
+                      "pm.test('allowed (has visit:open) → 400', () => pm.response.to.have.status(400));"
                     ]
                   }
                 }
@@ -7025,7 +7025,7 @@
               ]
             },
             {
-              "name": "visit:write · POST /visits",
+              "name": "visit:write or visit:open · POST /visits",
               "request": {
                 "method": "POST",
                 "header": [
@@ -7052,7 +7052,7 @@
                   "script": {
                     "type": "text/javascript",
                     "exec": [
-                      "pm.test('403 (lacks visit:write)', () => pm.response.to.have.status(403));"
+                      "pm.test('allowed (has visit:open) → 400', () => pm.response.to.have.status(400));"
                     ]
                   }
                 }
@@ -7850,7 +7850,7 @@
               ]
             },
             {
-              "name": "visit:write · POST /visits",
+              "name": "visit:write or visit:open · POST /visits",
               "request": {
                 "method": "POST",
                 "header": [
@@ -7877,7 +7877,7 @@
                   "script": {
                     "type": "text/javascript",
                     "exec": [
-                      "pm.test('403 (lacks visit:write)', () => pm.response.to.have.status(403));"
+                      "pm.test('403 (lacks visit:write and visit:open)', () => pm.response.to.have.status(403));"
                     ]
                   }
                 }
@@ -8675,7 +8675,7 @@
               ]
             },
             {
-              "name": "visit:write · POST /visits",
+              "name": "visit:write or visit:open · POST /visits",
               "request": {
                 "method": "POST",
                 "header": [
@@ -8702,7 +8702,7 @@
                   "script": {
                     "type": "text/javascript",
                     "exec": [
-                      "pm.test('403 (lacks visit:write)', () => pm.response.to.have.status(403));"
+                      "pm.test('403 (lacks visit:write and visit:open)', () => pm.response.to.have.status(403));"
                     ]
                   }
                 }
@@ -9500,7 +9500,7 @@
               ]
             },
             {
-              "name": "visit:write · POST /visits",
+              "name": "visit:write or visit:open · POST /visits",
               "request": {
                 "method": "POST",
                 "header": [
@@ -9527,7 +9527,7 @@
                   "script": {
                     "type": "text/javascript",
                     "exec": [
-                      "pm.test('403 (lacks visit:write)', () => pm.response.to.have.status(403));"
+                      "pm.test('403 (lacks visit:write and visit:open)', () => pm.response.to.have.status(403));"
                     ]
                   }
                 }

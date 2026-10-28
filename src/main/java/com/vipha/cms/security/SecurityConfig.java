@@ -108,6 +108,8 @@ public class SecurityConfig {
                         // Visits (consultations) — vitals rule must precede the general POST rule
                         .requestMatchers(HttpMethod.GET,   "/api/v1/visits/**").hasAuthority("visit:read")
                         .requestMatchers(HttpMethod.POST,  "/api/v1/visits/*/vitals").hasAuthority("vitals:write")
+                        // opening a visit, without treating the patient: a nurse taking vitals first, the front desk's walk-ins
+                        .requestMatchers(HttpMethod.POST,  "/api/v1/visits").hasAnyAuthority("visit:write", "visit:open")
                         .requestMatchers(HttpMethod.POST,  "/api/v1/visits/**").hasAuthority("visit:write")
                         .requestMatchers(HttpMethod.PATCH, "/api/v1/visits/**").hasAuthority("visit:write")
 
