@@ -18,11 +18,11 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * Logging in with a password through the API (Keycloak's password grant) and the account calls
- * around it, for API clients such as the Postman collection. The web app does none of this: it
- * signs in on Keycloak's page. Current OAuth guidance (RFC 9700, OAuth 2.1) rules the password
- * grant out, so these exist only while cms.auth.password-endpoints is on: in development, not in
- * the prod profile.
+ * Signing in and up with a password through the API (Keycloak's password grant), and the account
+ * calls around it. The web app's own sign-in, sign-up, forgot-password and change-password forms
+ * use these, as do API clients such as the Postman collection. Two-factor accounts send their
+ * authenticator code with the password. OAuth's security advice (RFC 9700) prefers signing in on
+ * Keycloak's page; cms.auth.password-endpoints=false turns these off for such a deployment.
  */
 @RestController
 @RequestMapping("/api/v1/auth")

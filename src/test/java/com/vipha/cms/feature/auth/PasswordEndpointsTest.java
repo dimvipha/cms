@@ -8,8 +8,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 
 /**
- * Password login through the API is for API clients in development; current OAuth guidance
- * (RFC 9700) rules it out, so production signs everyone in on Keycloak's page only.
+ * Password login through the API: the web app's own sign-in and sign-up forms and API clients
+ * such as Postman use it, so it is on, in production too, unless switched off.
  */
 class PasswordEndpointsTest {
 
@@ -28,9 +28,9 @@ class PasswordEndpointsTest {
     }
 
     @Test
-    void offInProduction() {
+    void onInProduction() {
         runner.withInitializer(new ConfigDataApplicationContextInitializer())
                 .withPropertyValues("spring.profiles.active=prod")
-                .run(context -> assertThat(context).doesNotHaveBean(PasswordAuthController.class));
+                .run(context -> assertThat(context).hasSingleBean(PasswordAuthController.class));
     }
 }

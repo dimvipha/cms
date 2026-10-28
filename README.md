@@ -37,7 +37,7 @@ The web app that uses it lives in its own repository,
 
 | Area | What is built |
 |---|---|
-| Sign-in | Keycloak's page for everyone (authorization code with PKCE), sign-up, Google, staff invites with two-factor setup, password endpoints for API clients in development |
+| Sign-in | The web app's own sign-in and sign-up forms through the API's password endpoints, Google through Keycloak's page, staff invites with two-factor setup, lockout after repeated wrong passwords |
 | Staff | Admins invite staff by email; Keycloak holds their accounts and roles |
 | Departments and doctors | Departments, doctor profiles with specialties and weekly schedules, activation |
 | Patients | Records with an MRN, self-registration, search, a patient's own portal (visits, prescriptions, invoices and their PDFs) |
@@ -145,17 +145,26 @@ audience) and reads the roles from `realm_access.roles`.
 
 | Keycloak client | Kind | Used for |
 |---|---|---|
-| `cms-app` | public, authorization code with PKCE (S256) | the web app: everyone signs in on Keycloak's page |
-| `private-app` | confidential, with a service account | the API itself: creating users, assigning roles and sending emails through Keycloak's admin API; in development also the password login of `POST /api/v1/auth/login` |
+| `cms-app` | public, authorization code with PKCE (S256) | the web app's *Continue with Google*, which goes through Keycloak's page |
+| `private-app` | confidential, with a service account | the API itself: creating users, assigning roles and sending emails through Keycloak's admin API, and the password login behind `POST /api/v1/auth/login` |
 
 ### The web app
 
-The browser goes to Keycloak's page, comes back to the app with a code, and trades it for tokens
-at Keycloak; it refreshes and logs out there too. Keycloak's page also does sign-up (with the email
-as username), forgotten passwords and Google. After each sign-in the app calls
-`POST /api/v1/auth/welcome`: someone new to the clinic becomes a patient (the `PATIENT` role, the
-`patient-management` group and a profile), and the app fetches tokens carrying the role. Staff and
-existing patients are left as they are.
+People sign in and up on the app's own pages, `/login` and `/register`, which call the API:
+
+- `POST /api/v1/auth/login` with the email, password and, for two-factor accounts, the
+  authenticator code. The API asks Keycloak (password grant through `private-app`) and returns its
+  tokens. `/refresh` renews them and `/logout` ends the session.
+- `POST /api/v1/auth/register` makes a patient: the Keycloak user, the `PATIENT` role, the
+  `patient-management` group and a profile. The app then signs them in.
+- `/forgot-password` emails a reset link; `/change-password` checks the current password (and code)
+  first.
+
+*Continue with Google* still goes through Keycloak's page (authorization code with PKCE through
+`cms-app`), since Google signs people in on its own page anyway. After that sign-in the app calls
+`POST /api/v1/auth/welcome`: someone new to the clinic becomes a patient, and the app fetches
+tokens carrying the role. Links in emails (staff invites, password resets) open Keycloak's pages in
+the clinic's theme.
 
 ### Staff invites
 
@@ -194,10 +203,16 @@ Following the OAuth 2.0 Security Best Current Practice (RFC 9700) and OpenID Con
 - **Two-factor sign-in for staff.** Invited staff set it up with their password;
   `STAFF_TWO_FACTOR=true ./deployment/keycloak_setup.sh` asks existing staff too, at their next
   sign-in.
-- **No password grant in production.** `POST /api/v1/auth/register`, `/login`, `/refresh`,
-  `/logout`, `/forgot-password` and `/change-password` exist for API clients such as Postman while
-  `PASSWORD_ENDPOINTS` is true (the default). The `prod` profile turns them off. An account with a
-  setup step pending, such as two-factor, cannot use them until it finishes that on Keycloak's page.
+- **Password sign-in through the API, by choice.** The web app keeps its sign-in at `/login` with
+  its own form, so the API takes the password and asks Keycloak (the password grant). RFC 9700
+  advises signing in on the identity provider's page instead, so the app never sees passwords; this
+  project chose the app's own pages and limits the risk: HTTPS only in production, the API never
+  stores or logs a password, tokens stay short-lived, and Keycloak locks an account for a while
+  after 5 wrong passwords. `PASSWORD_ENDPOINTS=false` and `PASSWORD_LOGIN=false` switch back to
+  Keycloak's page only. An account with a setup step pending (an invite not finished) is told to
+  finish it from the email link.
+- **Password rules.** At least 8 characters, and not the same as the username or email
+  (`PASSWORD_POLICY` in `keycloak_setup.sh`).
 - **Stateless.** No server session and no cookies, so no CSRF token; CORS admits only the web app's
   origins (`FRONTEND_ALLOWED_ORIGINS`).
 
@@ -305,8 +320,8 @@ Swagger (`/swagger-ui.html`, `/v3/api-docs`). The access rules are URL rules in
 | Method | Path | Needs |
 |---|---|---|
 | `POST` | `/auth/welcome` | any login; makes someone new a patient |
-| `POST` | `/auth/register` · `/login` · `/refresh` · `/logout` · `/forgot-password` | no login; development only |
-| `POST` | `/auth/change-password` | a login; development only |
+| `POST` | `/auth/register` · `/login` (email, password, code) · `/refresh` · `/logout` · `/forgot-password` | no login |
+| `POST` | `/auth/change-password` | a login |
 | `GET` · `PATCH` | `/user-profiles` | a login; your own profile |
 | `GET` | `/user-profiles/all` | `ADMIN` |
 | `POST` | `/staff` (invite) · `/staff/{id}/reset-password` | `ADMIN` |
@@ -443,7 +458,7 @@ src/main/java/com/vipha/cms/
 ├── security/        SecurityConfig, JSON 401/403, roles and permissions,
 │                    Keycloak admin client, token calls, user service, name cache
 └── feature/
-    ├── auth/        welcome, Google option, password endpoints (development)
+    ├── auth/        sign-in and sign-up with a password, welcome, Google option
     ├── staff/       staff invites (accounts live in Keycloak)
     ├── userprofile/ profile per Keycloak user
     ├── department/
@@ -513,7 +528,7 @@ Each setting below can come from `.env` or from the environment.
 | `API_AUDIENCE` | `clinic-api` | the audience tokens must name |
 | `KEYCLOAK_SERVER_URL` / `KEYCLOAK_REALM` | `http://localhost:1201` / `clinic` | Keycloak for the admin API |
 | `KEYCLOAK_CLIENT_ID` / `KEYCLOAK_CLIENT_SECRET` | `private-app` / none | the API's own Keycloak client |
-| `PASSWORD_ENDPOINTS` | `true` (`false` in `prod`) | the password endpoints under `/auth` |
+| `PASSWORD_ENDPOINTS` | `true` | the password endpoints under `/auth` (the web app's sign-in forms) |
 | `FRONTEND_ALLOWED_ORIGINS` | `http://localhost:5173,http://localhost:3000` | CORS |
 | `FRONTEND_LOGIN_URL` / `FRONTEND_CLIENT_ID` | `http://localhost:5173/login` / `cms-app` | where invite and reset emails lead back to |
 | `CLINIC_NAME` / `CLINIC_ADDRESS` / `CLINIC_PHONE` | `CMS Clinic` / empty / empty | the heading of printed documents |
@@ -540,7 +555,7 @@ bash ./gradlew test
 | Service unit tests (Mockito) | `VisitServiceImplTest`, `InvoiceServiceImplTest`, `PaymentServiceImplTest`, `PrescriptionServiceImplTest`, `CareScopeTest`, `WelcomeTest`, `StaffServiceImplTest`, `ClinicDirectoryServiceTest` | the business rules above, care scope, newcomers becoming patients, staff invites asking for two-factor |
 | Security slices (`@WebMvcTest` with the real `SecurityConfig`) | `BillingSecurityTest`, `ConsultationSecurityTest`, `PublicAccessSecurityTest` | which permission opens which endpoint, and what is public |
 | PDF rendering | `PrescriptionPdfRendererTest`, `ReceiptPdfRendererTest` | the documents render, also with data missing |
-| Configuration | `PasswordEndpointsTest` | password endpoints on by default, off with the flag and in `prod` |
+| Configuration | `PasswordEndpointsTest` | password endpoints on by default and in `prod`, off with the flag |
 | Against the database (`@SpringBootTest`) | `CmsApplicationTests`, `CareScopeQueryTest` | the app starts; care-scope queries in real SQL (rolled back) |
 
 The two `@SpringBootTest` classes use the development database, so start the containers and keep
@@ -571,7 +586,6 @@ About signing in, it checks that:
 
 Good to know:
 
-- The logins use the password endpoints, so the collection runs against development only.
 - Staff log in with the `staffPassword` variable. If a seeded account's password has been changed
   (on Keycloak's page, say), its login fails with 401, and so does everything that role does after
   it, along with requests needing the ids it would have created. Reset the password in the Keycloak
@@ -589,7 +603,7 @@ Good to know:
 |---|---|
 | `docker-compose.yml` | Postgres 17 (`clinic-db`, port 1200), Keycloak (`keycloak-clinic-db`, port 1201, `start-dev`), Mailpit (port 1202); on the external network `clinic-net` |
 | `init_db/init_db.sql` | creates `clinic_db` and `keycloak_clinic_db` on the first start of Postgres |
-| `keycloak_setup.sh` | sets up the realm and can be run again safely: email, sign-up and password reset, the login theme (once Keycloak has loaded it), token and session lifetimes, roles and permissions, the patient group, both clients, the audience, the service account's rights, Google, and optionally staff two-factor. Flags: `KEYCLOAK_URL`, `FRONTEND_ORIGINS`, `FRONTEND_HOME_URL`, `PASSWORD_LOGIN`, `STAFF_TWO_FACTOR`, `API_AUDIENCE`, `LOGIN_THEME`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_FROM`, `SMTP_USER`, `SMTP_PASSWORD` |
+| `keycloak_setup.sh` | sets up the realm and can be run again safely: email, sign-up and password reset, password rules and lockout, the login theme (once Keycloak has loaded it), token and session lifetimes, roles and permissions, the patient group, both clients, the audience, the service account's rights, Google, and optionally staff two-factor. Flags: `KEYCLOAK_URL`, `FRONTEND_ORIGINS`, `FRONTEND_HOME_URL`, `PASSWORD_LOGIN`, `PASSWORD_POLICY`, `STAFF_TWO_FACTOR`, `API_AUDIENCE`, `LOGIN_THEME`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_FROM`, `SMTP_USER`, `SMTP_PASSWORD` |
 | `seed.sh`, `seed.sql` | demo data and one login per role (skipped once loaded) |
 | `backup.sh` | `pg_dump` of both databases into `backups/` (ignored by git) |
 | `keycloak/providers/spring-clinic-theme.jar` | the sign-in pages (sign-in, sign-up, passwords, two-factor, notices) in the clinic's teal design, built by a separate Keycloakify project; Keycloak loads it on restart and `keycloak_setup.sh` switches the realm to it |
@@ -608,12 +622,12 @@ a Linode (or any Ubuntu server), step by step. In short:
   root) and Caddy, which serves the API and Keycloak over HTTPS with Let's Encrypt certificates.
   Only ports 80 and 443 are open.
 - The API runs with the `prod` profile: Flyway builds the schema, Hibernate only checks it, and
-  the password endpoints and API docs are off.
+  the API docs are off.
 - Keycloak runs with `start` (not `start-dev`), a pinned version, its public `https://` name, and
   the Spring Clinic theme.
-- `production/setup-keycloak.sh` sets up the realm for production: no password grant
-  (`PASSWORD_LOGIN=false`), two-factor sign-in for staff (`STAFF_TWO_FACTOR=true`), the web app's
-  address only, and a real mail server.
+- `production/setup-keycloak.sh` sets up the realm for production: two-factor sign-in for staff
+  (`STAFF_TWO_FACTOR=true`), the web app's address only, a real mail server, and the lockout and
+  password rules.
 - `production/create-admin.sh` makes the first administrator; `seed.sh` is not run there.
 - `production/backup.sh` dumps both databases nightly; copy them off the server.
 

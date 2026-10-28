@@ -1,5 +1,6 @@
 package com.vipha.cms.feature.auth;
 
+import com.vipha.cms.feature.auth.dto.LoginRequest;
 import com.vipha.cms.feature.userprofile.UserProfile;
 import com.vipha.cms.feature.userprofile.UserProfileRepository;
 import com.vipha.cms.security.KeycloakAuthClient;
@@ -63,6 +64,12 @@ class WelcomeTest {
             assertThat(service.welcome().joined()).as(role).isFalse();
         }
         verify(keycloakUserService, never()).assignRealmRoles(anyString(), any(String[].class));
+    }
+
+    @Test
+    void loginSendsTheAuthenticatorCodeAlong() {
+        service.login(new LoginRequest("nurse@cms.local", "secret-pass", "123456"));
+        verify(keycloakAuthClient).login("nurse@cms.local", "secret-pass", "123456");
     }
 
     @Test

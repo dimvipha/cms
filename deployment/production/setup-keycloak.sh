@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Sets up the clinic realm on the production Keycloak: ../keycloak_setup.sh with the addresses,
-# admin login and mail server from .env, and the production choices: no password login through
-# the API, two-factor sign-in for every staff account, and only the web app's address allowed.
+# admin login and mail server from .env, and the production choices: two-factor sign-in for every
+# staff account, and only the web app's address allowed.
 # Safe to run again, e.g. after changing .env.
 #
 #   ./setup-keycloak.sh
@@ -19,6 +19,5 @@ done < .env
 KEYCLOAK_URL="https://$AUTH_HOST" \
 FRONTEND_ORIGINS="[\"$WEB_ORIGIN\"]" \
 FRONTEND_HOME_URL="$WEB_ORIGIN/" \
-PASSWORD_LOGIN=false \
 STAFF_TWO_FACTOR=true \
   ../keycloak_setup.sh

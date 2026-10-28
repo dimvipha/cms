@@ -162,9 +162,9 @@ The API made its tables on this first start (Flyway, migration V1).
 ```
 
 It creates the `clinic` realm with its roles, permissions, clients and token rules, as on your
-computer, but for production: no password login through the API, two-factor sign-in for every
-staff account, only `WEB_ORIGIN` allowed to sign in, the Spring Clinic sign-in pages, and your
-mail server.
+computer, but for production: two-factor sign-in for every staff account, only `WEB_ORIGIN`
+allowed to sign in, the Spring Clinic sign-in pages, your mail server, and the lockout after 5
+wrong passwords with the password rules.
 
 Then give the API its client secret:
 
@@ -182,10 +182,11 @@ Then give the API its client secret:
 ```
 
 The phone number is needed when the realm's sign-up form asks for one. The script prints a
-one-time password. Open the web app, log in with your email and that password, and Keycloak asks
-for a new password and then for two-factor setup (scan the QR code with Google Authenticator or
-FreeOTP). From the app you can then add departments, invite staff (they get an email) and
-activate doctors.
+one-time password. Open the web app's `/login`, sign in with your email and that password, and the
+app offers **Finish setting up**: Keycloak's page asks for a new password and then for two-factor
+setup (scan the QR code with Google Authenticator or FreeOTP), and brings you back signed in.
+Later sign-ins happen on the app's own page, with your password and the 6-digit code. From the app
+you can then add departments, invite staff (they get an email) and activate doctors.
 
 Do not run `../seed.sh` here: it creates demo accounts with known passwords.
 

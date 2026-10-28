@@ -14,7 +14,7 @@
 #
 #   ./keycloak_setup.sh
 #   KEYCLOAK_URL=http://other-host:1201 ./keycloak_setup.sh
-#   PASSWORD_LOGIN=false STAFF_TWO_FACTOR=true ./keycloak_setup.sh   # production
+#   STAFF_TWO_FACTOR=true ./keycloak_setup.sh                          # production
 
 set -euo pipefail
 cd "$(dirname "$0")"
@@ -57,10 +57,13 @@ AUDIENCE_SCOPE="clinic-api-audience"
 # puts aud; the API needs all three
 DEFAULT_SCOPES="basic roles $AUDIENCE_SCOPE"
 
-# Password login straight to the token endpoint (POST /api/v1/auth/login, for API clients such
-# as Postman). The OAuth security best practice (RFC 9700) rules it out: set false in production,
-# with PASSWORD_ENDPOINTS=false on the API.
+# Password login through the API (POST /api/v1/auth/login): the web app's own sign-in form and
+# API clients such as Postman use it. OAuth's security advice (RFC 9700) prefers Keycloak's page;
+# PASSWORD_LOGIN=false turns it off for a deployment that signs in only there.
 PASSWORD_LOGIN="${PASSWORD_LOGIN:-true}"
+
+# what a new password must be (Keycloak's policy syntax)
+PASSWORD_POLICY="${PASSWORD_POLICY:-length(8) and notUsername and notEmail}"
 
 # Two-factor sign-in (an authenticator app) for staff who have not set it up yet. Invited staff
 # are asked for it anyway; this asks the existing ones at their next sign-in. Off by default,
@@ -288,6 +291,16 @@ TOKENS=$(jq -n --argjson a "$ACCESS_TOKEN_LIFESPAN" --argjson i "$SSO_SESSION_ID
 if [[ $(jq -c '{revokeRefreshToken, refreshTokenMaxReuse, accessTokenLifespan, ssoSessionIdleTimeout, ssoSessionMaxLifespan}' <<<"$REALM_REP") != "$(jq -c . <<<"$TOKENS")" ]]; then
   request PUT "$R" "$TOKENS" >/dev/null
   echo "  refresh tokens used once; access ${ACCESS_TOKEN_LIFESPAN}s, idle ${SSO_SESSION_IDLE}s, session ${SSO_SESSION_MAX}s"
+fi
+
+echo "==> Password rules and lockout"
+# the web app signs people in with the password grant, so the guessing defence is Keycloak's:
+# 5 wrong passwords lock an account for a minute, longer each time, up to 15 minutes
+GUARD=$(jq -n --arg policy "$PASSWORD_POLICY" '{bruteForceProtected: true, permanentLockout: false,
+          failureFactor: 5, waitIncrementSeconds: 60, maxFailureWaitSeconds: 900, passwordPolicy: $policy}')
+if [[ $(jq -c '{bruteForceProtected, permanentLockout, failureFactor, waitIncrementSeconds, maxFailureWaitSeconds, passwordPolicy}' <<<"$REALM_REP") != "$(jq -c . <<<"$GUARD")" ]]; then
+  request PUT "$R" "$GUARD" >/dev/null
+  echo "  lockout after 5 wrong passwords; password policy: $PASSWORD_POLICY"
 fi
 
 echo "==> Roles"

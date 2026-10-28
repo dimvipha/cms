@@ -2,6 +2,7 @@ package com.vipha.cms.common.exception;
 
 import com.vipha.cms.common.dto.ErrorResponse;
 import com.vipha.cms.common.dto.FieldErrorDetail;
+import com.vipha.cms.security.AccountSetupPendingException;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -86,6 +87,23 @@ public class GlobalExceptionHandler {
                 .status(HttpStatus.BAD_REQUEST)
                 .body(new ErrorResponse<>(
                         HttpStatus.BAD_REQUEST.value(),
+                        false,
+                        ex.getMessage(),
+                        Instant.now(),
+                        null
+                ));
+    }
+
+    /** Right password, but the account's setup is not finished; the client sends them to finish it. */
+    @ExceptionHandler(AccountSetupPendingException.class)
+    public ResponseEntity<ErrorResponse<Void>> handleAccountSetupPending(
+            AccountSetupPendingException ex,
+            HttpServletRequest request
+    ) {
+        return ResponseEntity
+                .status(HttpStatus.FORBIDDEN)
+                .body(new ErrorResponse<>(
+                        HttpStatus.FORBIDDEN.value(),
                         false,
                         ex.getMessage(),
                         Instant.now(),
