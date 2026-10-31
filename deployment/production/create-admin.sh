@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Makes the clinic's first administrator: a Keycloak user in the clinic realm with the ADMIN role
 # and a profile in the API's database. It prints a one-time password; at the first sign-in
-# Keycloak asks for a new one and for two-factor setup. Other staff are then invited from the app.
+# Keycloak asks for a new one. Other staff are then invited from the app.
 #
 #   ./create-admin.sh EMAIL FIRST_NAME LAST_NAME [PHONE]
 #
@@ -29,7 +29,6 @@ api() { curl -sS -f -H "Authorization: Bearer $TOKEN" -H "Content-Type: applicat
 PASSWORD=$(head -c 18 /dev/urandom | base64 | tr '+/' '-_')
 ACCOUNT=$(jq -n --arg e "$EMAIL" --arg f "$FIRST" --arg l "$LAST" --arg p "$PASSWORD" --arg phone "$PHONE" '{
     username: $e, email: $e, firstName: $f, lastName: $l, enabled: true, emailVerified: true,
-    requiredActions: ["CONFIGURE_TOTP"],
     credentials: [{type: "password", value: $p, temporary: true}]
   } + if $phone == "" then {} else {attributes: {phoneNumber: [$phone]}} end')
 api -X POST "$KC/admin/realms/clinic/users" --data "$ACCOUNT" >/dev/null \
@@ -44,4 +43,4 @@ docker compose exec -T postgres psql -U "$POSTGRES_USER" -d clinic_db -q -v ON_E
 
 echo "Administrator $EMAIL is ready. One-time password (shown once):"
 echo "  $PASSWORD"
-echo "Sign in on the web app; Keycloak then asks for a new password and two-factor setup."
+echo "Sign in on the web app; Keycloak then asks for a new password."

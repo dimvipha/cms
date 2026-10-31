@@ -37,16 +37,15 @@ class StaffServiceImplTest {
     }
 
     @Test
-    void newStaffSetUpTwoFactorSignIn_inTheInviteAndAtTheirFirstSignIn() {
+    void newStaffSetTheirPasswordAndConfirmTheirEmail_withNoAuthenticatorApp() {
         when(keycloakUserService.createUser("sokha", "sokha@clinic.local", "Sokha", "Chan")).thenReturn(USER_ID);
 
         service.create(new CreateStaffRequest("sokha", "sokha@clinic.local", "Sokha", "Chan", Set.of(StaffType.NURSE)));
 
         verify(keycloakUserService).assignRealmRoles(USER_ID, "NURSE");
-        verify(keycloakUserService).addRequiredActions(USER_ID, "CONFIGURE_TOTP");
         @SuppressWarnings("unchecked")
         ArgumentCaptor<List<String>> actions = ArgumentCaptor.forClass(List.class);
         verify(keycloakUserService).sendExecuteActionsEmail(eq(USER_ID), actions.capture(), anyInt());
-        assertThat(actions.getValue()).containsExactly("UPDATE_PASSWORD", "VERIFY_EMAIL", "CONFIGURE_TOTP");
+        assertThat(actions.getValue()).containsExactly("UPDATE_PASSWORD", "VERIFY_EMAIL");
     }
 }

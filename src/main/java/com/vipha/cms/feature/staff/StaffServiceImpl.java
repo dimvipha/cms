@@ -17,9 +17,7 @@ import java.util.List;
 @Slf4j
 public class StaffServiceImpl implements StaffService {
 
-    /** Staff see medical records, so they also set up a second sign-in step (an authenticator app). */
-    private static final String TWO_FACTOR = "CONFIGURE_TOTP";
-    private static final List<String> SETUP_ACTIONS = List.of("UPDATE_PASSWORD", "VERIFY_EMAIL", TWO_FACTOR);
+    private static final List<String> SETUP_ACTIONS = List.of("UPDATE_PASSWORD", "VERIFY_EMAIL");
     private static final List<String> PASSWORD_RESET_ACTIONS = List.of("UPDATE_PASSWORD");
     private static final int SETUP_LINK_LIFESPAN_SECONDS = 43_200;
     private static final int PASSWORD_RESET_LIFESPAN_SECONDS = 3_600;
@@ -44,8 +42,6 @@ public class StaffServiceImpl implements StaffService {
 
         try {
             keycloakUserService.assignRealmRoles(userId, roleNames);
-            // asked at sign-in too, should they set their password without finishing the email's steps
-            keycloakUserService.addRequiredActions(userId, TWO_FACTOR);
             keycloakUserService.sendExecuteActionsEmail(userId, SETUP_ACTIONS, SETUP_LINK_LIFESPAN_SECONDS);
             saveUserProfile(userId);
             if (request.roles().contains(StaffType.DOCTOR)) {

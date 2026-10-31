@@ -72,7 +72,7 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public TokenResponse login(LoginRequest request) {
-        return keycloakAuthClient.login(request.username(), request.password(), request.otp());
+        return keycloakAuthClient.login(request.username(), request.password());
     }
 
     @Override
@@ -120,7 +120,7 @@ public class AuthServiceImpl implements AuthService {
         // proving the current password opens a session; close it again right away
         TokenResponse check;
         try {
-            check = keycloakAuthClient.login(username, request.currentPassword(), request.otp());
+            check = keycloakAuthClient.login(username, request.currentPassword());
         } catch (BadCredentialsException ex) {
             throw new BusinessRuleException("Current password is incorrect");
         }

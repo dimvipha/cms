@@ -12,8 +12,5 @@ public record ChangePasswordRequest(
         String newPassword,
 
         @NotBlank(message = "Confirmed password is required")
-        String confirmedPassword,
-        // proving the current password is a sign-in, so two-factor accounts give their code too
-        @Size(max = 10, message = "The code has at most 10 digits")
-        String otp
+        String confirmedPassword
 ) {}

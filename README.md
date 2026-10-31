@@ -37,7 +37,7 @@ The web app that uses it lives in its own repository,
 
 | Area | What is built |
 |---|---|
-| Sign-in | The web app's own sign-in and sign-up forms through the API's password endpoints, Google through Keycloak's page, staff invites with two-factor setup, lockout after repeated wrong passwords |
+| Sign-in | The web app's own sign-in and sign-up forms through the API's password endpoints, Google through Keycloak's page, staff invites, lockout after repeated wrong passwords |
 | Staff | Admins invite staff by email; Keycloak holds their accounts and roles |
 | Departments and doctors | Departments, doctor profiles with specialties and weekly schedules, activation |
 | Patients | Records with an MRN, self-registration, search, a patient's own portal (visits, prescriptions, invoices and their PDFs) |
@@ -152,8 +152,7 @@ audience) and reads the roles from `realm_access.roles`.
 
 People sign in and up on the app's own pages, `/login` and `/register`, which call the API:
 
-- `POST /api/v1/auth/login` with the email, password and, for two-factor accounts, the
-  authenticator code. The API asks Keycloak (password grant through `private-app`) and returns its
+- `POST /api/v1/auth/login` with the email and password. The API asks Keycloak (password grant through `private-app`) and returns its
   tokens. `/refresh` renews them and `/logout` ends the session.
 - `POST /api/v1/auth/register` makes a patient: the Keycloak user, the `PATIENT` role, the
   `patient-management` group and a profile. The app then signs them in.
@@ -170,8 +169,7 @@ the clinic's theme.
 
 An admin calls `POST /api/v1/staff`. The API creates the Keycloak user with the chosen role (and an
 inactive doctor profile for a doctor), and Keycloak emails a link, valid for 12 hours, to set a
-password, confirm the email address and set up two-factor sign-in with an authenticator app. In
-development the email lands in Mailpit. `POST /api/v1/staff/{id}/reset-password` sends a reset
+password and confirm the email address. In development the email lands in Mailpit. `POST /api/v1/staff/{id}/reset-password` sends a reset
 link valid for an hour.
 
 ### Google
@@ -200,9 +198,6 @@ Following the OAuth 2.0 Security Best Current Practice (RFC 9700) and OpenID Con
 - **Short tokens, single-use refresh tokens.** Access tokens last 5 minutes; each refresh token works
   once, so a stolen one that is replayed is refused; a session ends after 30 idle minutes or 10
   hours.
-- **Two-factor sign-in for staff.** Invited staff set it up with their password;
-  `STAFF_TWO_FACTOR=true ./deployment/keycloak_setup.sh` asks existing staff too, at their next
-  sign-in.
 - **Password sign-in through the API, by choice.** The web app keeps its sign-in at `/login` with
   its own form, so the API takes the password and asks Keycloak (the password grant). RFC 9700
   advises signing in on the identity provider's page instead, so the app never sees passwords; this
@@ -552,7 +547,7 @@ bash ./gradlew test
 
 | Kind | Classes | What they show |
 |---|---|---|
-| Service unit tests (Mockito) | `VisitServiceImplTest`, `InvoiceServiceImplTest`, `PaymentServiceImplTest`, `PrescriptionServiceImplTest`, `CareScopeTest`, `WelcomeTest`, `StaffServiceImplTest`, `ClinicDirectoryServiceTest` | the business rules above, care scope, newcomers becoming patients, staff invites asking for two-factor |
+| Service unit tests (Mockito) | `VisitServiceImplTest`, `InvoiceServiceImplTest`, `PaymentServiceImplTest`, `PrescriptionServiceImplTest`, `CareScopeTest`, `WelcomeTest`, `StaffServiceImplTest`, `ClinicDirectoryServiceTest` | the business rules above, care scope, newcomers becoming patients, staff invites |
 | Security slices (`@WebMvcTest` with the real `SecurityConfig`) | `BillingSecurityTest`, `ConsultationSecurityTest`, `PublicAccessSecurityTest` | which permission opens which endpoint, and what is public |
 | PDF rendering | `PrescriptionPdfRendererTest`, `ReceiptPdfRendererTest` | the documents render, also with data missing |
 | Configuration | `PasswordEndpointsTest` | password endpoints on by default and in `prod`, off with the flag |
@@ -590,8 +585,8 @@ Good to know:
   (on Keycloak's page, say), its login fails with 401, and so does everything that role does after
   it, along with requests needing the ids it would have created. Reset the password in the Keycloak
   admin console (*Temporary* off) or update the variable.
-- Staff invited through `POST /api/v1/staff` must set up two-factor sign-in first, so they cannot
-  log in here until they have.
+- Staff invited through `POST /api/v1/staff` must finish the steps in their email first, so they
+  cannot log in here until they have.
 - Each run registers a new patient, books the next free slot, registers one walk-in and adds one
   medicine (discontinued again at the end). No emails are sent.
 
@@ -603,10 +598,10 @@ Good to know:
 |---|---|
 | `docker-compose.yml` | Postgres 17 (`clinic-db`, port 1200), Keycloak (`keycloak-clinic-db`, port 1201, `start-dev`), Mailpit (port 1202); on the external network `clinic-net` |
 | `init_db/init_db.sql` | creates `clinic_db` and `keycloak_clinic_db` on the first start of Postgres |
-| `keycloak_setup.sh` | sets up the realm and can be run again safely: email, sign-up and password reset, password rules and lockout, the login theme (once Keycloak has loaded it), token and session lifetimes, roles and permissions, the patient group, both clients, the audience, the service account's rights, Google, and optionally staff two-factor. Flags: `KEYCLOAK_URL`, `FRONTEND_ORIGINS`, `FRONTEND_HOME_URL`, `PASSWORD_LOGIN`, `PASSWORD_POLICY`, `STAFF_TWO_FACTOR`, `API_AUDIENCE`, `LOGIN_THEME`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_FROM`, `SMTP_USER`, `SMTP_PASSWORD` |
+| `keycloak_setup.sh` | sets up the realm and can be run again safely: email, sign-up and password reset, password rules and lockout, the login theme (once Keycloak has loaded it), token and session lifetimes, roles and permissions, the patient group, both clients, the audience, the service account's rights, Google, and taking authenticators off staff accounts. Flags: `KEYCLOAK_URL`, `FRONTEND_ORIGINS`, `FRONTEND_HOME_URL`, `PASSWORD_LOGIN`, `PASSWORD_POLICY`, `STAFF_TWO_FACTOR`, `API_AUDIENCE`, `LOGIN_THEME`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_FROM`, `SMTP_USER`, `SMTP_PASSWORD` |
 | `seed.sh`, `seed.sql` | demo data and one login per role (skipped once loaded) |
 | `backup.sh` | `pg_dump` of both databases into `backups/` (ignored by git) |
-| `keycloak/providers/spring-clinic-theme.jar` | the sign-in pages (sign-in, sign-up, passwords, two-factor, notices) in the clinic's teal design, built by a separate Keycloakify project; Keycloak loads it on restart and `keycloak_setup.sh` switches the realm to it |
+| `keycloak/providers/spring-clinic-theme.jar` | the sign-in pages (sign-in, sign-up, passwords, notices) in the clinic's teal design, built by a separate Keycloakify project; Keycloak loads it on restart and `keycloak_setup.sh` switches the realm to it |
 | `keycloak/clinic-theme/`, `keycloak/build_theme.sh` | the branded invite and reset emails; the script packs them into `keycloak/providers/clinic-theme.jar`, which Keycloak loads on restart |
 | `keycloak_setup.sql` | an older SQL version of the realm set-up, replaced by `keycloak_setup.sh` |
 | `production/` | running it on a server: Compose with Caddy for HTTPS, the settings, realm set-up, first administrator and backups; its README is the step-by-step guide |
@@ -625,9 +620,8 @@ a Linode (or any Ubuntu server), step by step. In short:
   the API docs are off.
 - Keycloak runs with `start` (not `start-dev`), a pinned version, its public `https://` name, and
   the Spring Clinic theme.
-- `production/setup-keycloak.sh` sets up the realm for production: two-factor sign-in for staff
-  (`STAFF_TWO_FACTOR=true`), the web app's address only, a real mail server, and the lockout and
-  password rules.
+- `production/setup-keycloak.sh` sets up the realm for production: the web app's address only, a
+  real mail server, and the lockout and password rules.
 - `production/create-admin.sh` makes the first administrator; `seed.sh` is not run there.
 - `production/backup.sh` dumps both databases nightly; copy them off the server.
 

@@ -38,17 +38,14 @@ public class KeycloakAuthClient {
         this.restClient = RestClient.create();
     }
 
-    /** The password grant; {@code otp} is the authenticator code of a two-factor account, else null. */
-    public TokenResponse login(String username, String password, String otp) {
+    /** The password grant. */
+    public TokenResponse login(String username, String password) {
         MultiValueMap<String, String> form = new LinkedMultiValueMap<>();
         form.add("grant_type", "password");
         form.add("client_id", clientId);
         form.add("client_secret", clientSecret);
         form.add("username", username);
         form.add("password", password);
-        if (otp != null && !otp.isBlank()) {
-            form.add("otp", otp.strip());
-        }
         return exchangeToken(form, "Invalid username or password");
     }
 
@@ -88,8 +85,8 @@ public class KeycloakAuthClient {
                     .body(TokenResponse.class);
         } catch (RestClientResponseException ex) {
             int status = ex.getStatusCode().value();
-            // Keycloak says this only once the password is right: steps such as a new password or
-            // two-factor setup are pending, and those happen on Keycloak's own page
+            // Keycloak says this only once the password is right: steps such as a new password
+            // are pending, and those happen on Keycloak's own page
             if (ex.getResponseBodyAsString().contains("Account is not fully set up")) {
                 throw new AccountSetupPendingException();
             }

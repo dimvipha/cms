@@ -67,9 +67,9 @@ class WelcomeTest {
     }
 
     @Test
-    void loginSendsTheAuthenticatorCodeAlong() {
-        service.login(new LoginRequest("nurse@cms.local", "secret-pass", "123456"));
-        verify(keycloakAuthClient).login("nurse@cms.local", "secret-pass", "123456");
+    void loginAsksKeycloakWithTheEmailAndPassword() {
+        service.login(new LoginRequest("nurse@cms.local", "secret-pass"));
+        verify(keycloakAuthClient).login("nurse@cms.local", "secret-pass");
     }
 
     @Test

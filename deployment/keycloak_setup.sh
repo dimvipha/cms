@@ -7,14 +7,13 @@
 #   - the backend and frontend clients, their login flows and token scopes, the
 #     API's audience, and how long tokens and sessions last
 #   - sign-in with Google, once GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET are in .env
-#   - optionally, two-factor sign-in for existing staff (STAFF_TWO_FACTOR=true)
+#   - no authenticator codes: the app's login form takes an email and a password only
 #
 # Safe to re-run: mappings are synced, so a permission removed here is also
 # removed in Keycloak. Reads the Keycloak admin login from .env next to it.
 #
 #   ./keycloak_setup.sh
 #   KEYCLOAK_URL=http://other-host:1201 ./keycloak_setup.sh
-#   STAFF_TWO_FACTOR=true ./keycloak_setup.sh                          # production
 
 set -euo pipefail
 cd "$(dirname "$0")"
@@ -65,10 +64,6 @@ PASSWORD_LOGIN="${PASSWORD_LOGIN:-true}"
 # what a new password must be (Keycloak's policy syntax)
 PASSWORD_POLICY="${PASSWORD_POLICY:-length(8) and notUsername and notEmail}"
 
-# Two-factor sign-in (an authenticator app) for staff who have not set it up yet. Invited staff
-# are asked for it anyway; this asks the existing ones at their next sign-in. Off by default,
-# since an account with a pending step cannot use password login (Postman). True in production.
-STAFF_TWO_FACTOR="${STAFF_TWO_FACTOR:-false}"
 STAFF_ROLES="ADMIN DOCTOR NURSE RECEPTIONIST PHARMACIST LAB_TECHNICIAN"
 
 # Tokens and sessions, in seconds: access tokens last 5 minutes; each refresh token works once
@@ -224,9 +219,7 @@ update_client() {
 
 command -v jq >/dev/null || die "jq is required"
 command -v curl >/dev/null || die "curl is required"
-for flag in PASSWORD_LOGIN STAFF_TWO_FACTOR; do
-  [[ ${!flag} == true || ${!flag} == false ]] || die "$flag must be true or false"
-done
+[[ $PASSWORD_LOGIN == true || $PASSWORD_LOGIN == false ]] || die "PASSWORD_LOGIN must be true or false"
 
 TOKEN=$(curl -sS -f "$KEYCLOAK_URL/realms/master/protocol/openid-connect/token" \
           -d grant_type=password -d client_id=admin-cli \
@@ -458,24 +451,25 @@ else
   echo "  $KEYCLOAK_URL/realms/$REALM/broker/google/endpoint"
 fi
 
-echo "==> Two-factor sign-in for staff"
-if [[ $STAFF_TWO_FACTOR != true ]]; then
-  echo "  skipped: STAFF_TWO_FACTOR=true asks staff without it to set it up at their next sign-in"
-else
-  declare -A SEEN=()
-  for role in $STAFF_ROLES; do
-    for uid in $(request GET "$R/roles/$role/users?first=0&max=1000" | jq -r '.[].id'); do
-      if [[ -n ${SEEN[$uid]:-} ]]; then continue; fi
-      SEEN[$uid]=1
-      # already set up, or already asked
-      if request GET "$R/users/$uid/credentials" | jq -e 'any(.[]; .type == "otp")' >/dev/null; then continue; fi
-      user=$(request GET "$R/users/$uid")
-      if jq -e '(.requiredActions // []) | index("CONFIGURE_TOTP") != null' <<<"$user" >/dev/null; then continue; fi
-      request PUT "$R/users/$uid" "$(jq -c '.requiredActions += ["CONFIGURE_TOTP"]' <<<"$user")" >/dev/null
-      echo "  + $(jq -r .username <<<"$user") ($role)"
+echo "==> No authenticator codes"
+# Keycloak refuses a password alone from an account with an authenticator, and the app's login
+# form has nowhere to type a code, so staff from before this have theirs taken off.
+declare -A SEEN=()
+for role in $STAFF_ROLES; do
+  for uid in $(request GET "$R/roles/$role/users?first=0&max=1000" | jq -r '.[].id'); do
+    if [[ -n ${SEEN[$uid]:-} ]]; then continue; fi
+    SEEN[$uid]=1
+    user=$(request GET "$R/users/$uid")
+    if jq -e '(.requiredActions // []) | index("CONFIGURE_TOTP") != null' <<<"$user" >/dev/null; then
+      request PUT "$R/users/$uid" "$(jq -c '.requiredActions -= ["CONFIGURE_TOTP"]' <<<"$user")" >/dev/null
+      echo "  - $(jq -r .username <<<"$user"): no longer asked to set one up"
+    fi
+    for credential in $(request GET "$R/users/$uid/credentials" | jq -r '.[] | select(.type == "otp") | .id'); do
+      request DELETE "$R/users/$uid/credentials/$credential" >/dev/null
+      echo "  - $(jq -r .username <<<"$user"): authenticator removed"
     done
   done
-fi
+done
 
 echo "==> Done"
 if [[ $BACKEND_CREATED == true ]]; then
