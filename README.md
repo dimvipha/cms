@@ -266,8 +266,10 @@ On top of the permissions, the services check ownership:
 
 - A patient reaches only their own record, appointments, visits, prescriptions and issued invoices.
 - A doctor reads every patient's record (`patient:read-all`) only within their **care scope**:
-  patients booked with them, or seen by them in a visit. Staff with a clinic-wide job (admin, nurse,
-  receptionist, pharmacist, lab technician) are not limited. See `feature/care/CareScope`.
+  patients booked with them, or seen by them in a visit. Their appointments are their own too. Staff
+  with a clinic-wide job (admin, nurse, receptionist, pharmacist, lab technician) are not limited,
+  but an account that is also a doctor works as one; only an admin stays clinic-wide. See
+  `feature/care/CareScope`.
 - Only the visit's own doctor (or an admin) changes a visit or writes its prescription. A doctor
   who starts an open visit booked with someone else takes it over.
 - Staff management (`/staff`), deleting a patient and listing every user profile need the `ADMIN`

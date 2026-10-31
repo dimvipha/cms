@@ -52,13 +52,21 @@ class CareScopeTest {
     }
 
     @Test
-    void clinicWideRolesAreNotLimited_evenWhenAlsoADoctor() {
-        for (String role : new String[]{Roles.NURSE, Roles.RECEPTIONIST, Roles.PHARMACIST, Roles.LAB_TECHNICIAN, Roles.ADMIN}) {
+    void clinicWideRolesAreNotLimited_butADoctorWithOneStillIs() {
+        for (String role : new String[]{Roles.NURSE, Roles.RECEPTIONIST, Roles.PHARMACIST, Roles.LAB_TECHNICIAN}) {
             TestAuth.loginAs("someone", role);
             assertThat(careScope.limitedToDoctor()).as(role).isEmpty();
             TestAuth.loginAs(DOCTOR_ID, Roles.DOCTOR, role);
-            assertThat(careScope.limitedToDoctor()).as("DOCTOR and " + role).isEmpty();
+            assertThat(careScope.limitedToDoctor()).as("DOCTOR and " + role).contains(DOCTOR_ID);
         }
+    }
+
+    @Test
+    void anAdminIsNotLimited_evenWhenAlsoADoctor() {
+        TestAuth.loginAs("someone", Roles.ADMIN);
+        assertThat(careScope.limitedToDoctor()).isEmpty();
+        TestAuth.loginAs(DOCTOR_ID, Roles.DOCTOR, Roles.ADMIN);
+        assertThat(careScope.limitedToDoctor()).isEmpty();
     }
 
     @Test

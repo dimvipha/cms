@@ -7,6 +7,7 @@ import com.vipha.cms.feature.appointment.dto.AppointmentResponse;
 import com.vipha.cms.feature.appointment.dto.CreateAppointmentRequest;
 import com.vipha.cms.feature.appointment.dto.UpdateAppointmentRequest;
 import com.vipha.cms.feature.appointment.util.AppointmentSpecs;
+import com.vipha.cms.feature.care.CareScope;
 import com.vipha.cms.feature.department.DepartmentService;
 import com.vipha.cms.feature.doctor.Doctor;
 import com.vipha.cms.feature.doctor.DoctorRepository;
@@ -51,6 +52,7 @@ public class AppointmentServiceImpl implements AppointmentService {
     private final AvailabilityService availabilityService;
     private final AppointmentMapper appointmentMapper;
     private final ClinicProperties clinicProperties;
+    private final CareScope careScope;
 
     @Override
     public AppointmentResponse create(CreateAppointmentRequest request) {
@@ -98,7 +100,7 @@ public class AppointmentServiceImpl implements AppointmentService {
     @Transactional(readOnly = true)
     public Page<AppointmentResponse> findAll(UUID patientId, String doctorId, AppointmentStatus status,
                                              LocalDate date, int pageNumber, int pageSize) {
-        if (!AuthUtils.hasAuthority(Permissions.APPOINTMENT_READ_ALL)) {
+        if (!readsAll()) {
             OwnSide own = ownSide();
             if (own.patientId() != null) {
                 patientId = own.patientId();
@@ -217,8 +219,13 @@ public class AppointmentServiceImpl implements AppointmentService {
         return new OwnSide(currentPatient().getId(), null);
     }
 
+    /** A doctor reads their own, even with another role that reads every appointment. */
+    private boolean readsAll() {
+        return AuthUtils.hasAuthority(Permissions.APPOINTMENT_READ_ALL) && careScope.limitedToDoctor().isEmpty();
+    }
+
     private void assertCanRead(Appointment appointment) {
-        if (AuthUtils.hasAuthority(Permissions.APPOINTMENT_READ_ALL)) {
+        if (readsAll()) {
             return;
         }
         String userId = AuthUtils.extractUserId();

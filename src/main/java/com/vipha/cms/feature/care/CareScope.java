@@ -18,7 +18,6 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Component;
 
-import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Function;
@@ -27,15 +26,12 @@ import java.util.function.Function;
  * A doctor works with their own patients: anyone booked with them (an appointment that is not
  * cancelled) or seen by them in a visit. For those patients they read the whole record, other
  * doctors' visits and prescriptions included, because treatment needs the history; the rest of
- * the clinic stays closed to them. Staff whose work spans the clinic are not limited.
+ * the clinic stays closed to them. Staff whose work spans the clinic are not limited, but an
+ * account that is also a doctor works as one; only an admin stays clinic-wide.
  */
 @Component
 @RequiredArgsConstructor
 public class CareScope {
-
-    /** A doctor who also holds one of these roles works clinic-wide through it. */
-    private static final List<String> CLINIC_WIDE =
-            List.of(Roles.ADMIN, Roles.RECEPTIONIST, Roles.NURSE, Roles.PHARMACIST, Roles.LAB_TECHNICIAN);
 
     private static final String NOT_IN_CARE = "You can only see patients in your care";
 
@@ -44,9 +40,8 @@ public class CareScope {
 
     /** The doctor whose patients the caller is limited to; empty when the caller sees the whole clinic. */
     public Optional<String> limitedToDoctor() {
-        boolean doctorOnly = AuthUtils.hasAuthority(Roles.DOCTOR)
-                && CLINIC_WIDE.stream().noneMatch(AuthUtils::hasAuthority);
-        return doctorOnly ? Optional.of(AuthUtils.extractUserId()) : Optional.empty();
+        boolean limited = AuthUtils.hasAuthority(Roles.DOCTOR) && !AuthUtils.hasAuthority(Roles.ADMIN);
+        return limited ? Optional.of(AuthUtils.extractUserId()) : Optional.empty();
     }
 
     /** Refuses a single record of a patient outside a limited doctor's care. */

@@ -2,6 +2,7 @@ package com.vipha.cms.feature.care;
 
 import com.vipha.cms.feature.appointment.Appointment;
 import com.vipha.cms.feature.appointment.AppointmentRepository;
+import com.vipha.cms.feature.appointment.AppointmentService;
 import com.vipha.cms.feature.appointment.AppointmentStatus;
 import com.vipha.cms.feature.doctor.Doctor;
 import com.vipha.cms.feature.doctor.DoctorRepository;
@@ -47,6 +48,7 @@ class CareScopeQueryTest {
     @Autowired VisitRepository visitRepository;
     @Autowired PatientService patientService;
     @Autowired VisitService visitService;
+    @Autowired AppointmentService appointmentService;
 
     Doctor me;
     Doctor colleague;
@@ -83,6 +85,30 @@ class CareScopeQueryTest {
         TestAuth.loginAs(me.getUserId(), Roles.DOCTOR, "patient:read-all");
 
         assertThat(searchNames()).containsExactlyInAnyOrder("Booked", "Seen");
+    }
+
+    @Test
+    void aDoctorWhoIsAlsoANurseFindsOnlyTheirOwnPatients() {
+        TestAuth.loginAs(me.getUserId(), Roles.DOCTOR, Roles.NURSE, "patient:read-all");
+
+        assertThat(searchNames()).containsExactlyInAnyOrder("Booked", "Seen");
+    }
+
+    @Test
+    void aDoctorWhoIsAlsoANurseListsOnlyTheirOwnAppointments() {
+        TestAuth.loginAs(me.getUserId(), Roles.DOCTOR, Roles.NURSE, "appointment:read", "appointment:read-all");
+
+        assertThat(appointmentService.findAll(null, null, null, null, 0, 50).getContent())
+                .allSatisfy(appointment -> assertThat(appointment.doctorId()).isEqualTo(me.getUserId()))
+                .hasSize(2);
+    }
+
+    @Test
+    void aNurseListsEveryAppointment() {
+        TestAuth.loginAs("care-test-nurse", Roles.NURSE, "appointment:read-all");
+
+        assertThat(appointmentService.findAll(null, colleague.getUserId(), null, null, 0, 50).getContent())
+                .hasSize(1);
     }
 
     @Test
