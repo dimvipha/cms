@@ -32,6 +32,8 @@ public interface VisitService {
 
     VitalSignResponse recordVitals(UUID visitId, RecordVitalSignRequest request);
 
-    /** The visit, provided it is still open and the caller is its doctor (or an admin). */
+    VitalSignResponse correctVitals(UUID visitId, UUID vitalSignId, RecordVitalSignRequest request);
+
+    /** The visit, provided it was not cancelled and the caller is its doctor (or an admin). */
     Visit getEditableEntity(UUID id);
 }

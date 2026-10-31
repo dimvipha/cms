@@ -81,4 +81,10 @@ public class VisitController {
                                           @Valid @RequestBody RecordVitalSignRequest request) {
         return visitService.recordVitals(id, request);
     }
+
+    @PutMapping("/{id}/vitals/{vitalSignId}")
+    public VitalSignResponse correctVitals(@PathVariable UUID id, @PathVariable UUID vitalSignId,
+                                           @Valid @RequestBody RecordVitalSignRequest request) {
+        return visitService.correctVitals(id, vitalSignId, request);
+    }
 }

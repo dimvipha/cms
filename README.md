@@ -357,6 +357,7 @@ Swagger (`/swagger-ui.html`, `/v3/api-docs`). The access rules are URL rules in
 | `PATCH` | `/visits/{id}` (complaint, ICD-10 code, diagnosis, notes) | `visit:write` |
 | `POST` | `/visits/{id}/start` · `/complete` · `/cancel` | `visit:write` |
 | `POST` | `/visits/{id}/vitals` | `vitals:write` |
+| `PUT` | `/visits/{id}/vitals/{vitalSignId}` | `vitals:write` |
 | `GET` | `/prescriptions?visitId=&patientId=` · `/prescriptions/{id}` · `/prescriptions/{id}/pdf` | `prescription:read` |
 | `POST` · `PUT` · `DELETE` | `/prescriptions` · `/prescriptions/{id}` | `prescription:write` |
 
@@ -397,12 +398,16 @@ specialty and a schedule.
   checked-in patient's visit to take vital signs before the doctor sees them, and the front desk
   registers a walk-in for a named doctor. The doctor then starts the visit from their waiting list.
 - Open → in progress → completed, or cancelled from either; completing needs a diagnosis and
-  completes the appointment. Closed visits are read-only.
+  completes the appointment.
+- A completed visit's doctor (or an admin) can still correct its notes, diagnosis and vital signs,
+  though it must keep a diagnosis, and its prescription until the visit is billed; voiding the
+  invoice unlocks it again. A cancelled visit stays as it is.
 - Vital signs need at least one measurement, systolic above diastolic, and an open visit; BMI is
-  worked out from height and weight.
+  worked out from height and weight. Whoever may record them can correct a reading during the
+  visit.
 
-**Prescriptions** (`feature/prescription`): one per visit, while the visit is open; no medicine twice,
-and only active medicines. Editing replaces the items. A cancelled visit's prescription cannot be
+**Prescriptions** (`feature/prescription`): one per visit, written or corrected until the visit is
+billed, and never on a cancelled visit; no medicine twice, and only active medicines. Editing replaces the items. A cancelled visit's prescription cannot be
 printed.
 
 **Stock** (`feature/pharmacy`): stock arrives in batches with a batch number unique per medicine and a

@@ -19,6 +19,7 @@ public record VisitResponse(
         String diagnosis,
         String notes,
         VisitStatus status,
+        boolean billed,
         List<VitalSignResponse> vitalSigns,
         Instant createdAt,
         Instant updatedAt

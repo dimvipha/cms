@@ -4,6 +4,8 @@ import com.vipha.cms.common.ClinicProperties;
 import com.vipha.cms.common.dto.PdfFile;
 import com.vipha.cms.common.exception.BusinessRuleException;
 import com.vipha.cms.common.exception.ResourceNotFoundException;
+import com.vipha.cms.feature.billing.InvoiceRepository;
+import com.vipha.cms.feature.billing.InvoiceStatus;
 import com.vipha.cms.feature.care.CareScope;
 import com.vipha.cms.feature.pharmacy.Medicine;
 import com.vipha.cms.feature.pharmacy.MedicineRepository;
@@ -52,6 +54,7 @@ class PrescriptionServiceImplTest {
     @Mock PrescriptionPdfRenderer pdfRenderer;
     @Mock KeycloakUserService keycloakUserService;
     @Mock CareScope careScope;
+    @Mock InvoiceRepository invoiceRepository;
 
     PrescriptionServiceImpl service;
 
@@ -64,7 +67,7 @@ class PrescriptionServiceImplTest {
         ReflectionTestUtils.setField(mapper, "userNames", userNames);
         service = new PrescriptionServiceImpl(prescriptionRepository, medicineRepository, visitService,
                 mapper, pdfRenderer, keycloakUserService,
-                new ClinicProperties("Test Clinic", "", "", ZoneId.of("Asia/Bangkok")), careScope);
+                new ClinicProperties("Test Clinic", "", "", ZoneId.of("Asia/Bangkok")), careScope, invoiceRepository);
     }
 
     @Test
@@ -154,12 +157,48 @@ class PrescriptionServiceImplTest {
     }
 
     @Test
-    void delete_checksTheVisitIsStillEditable() {
+    void update_correctsACompletedVisitThatIsNotBilledYet() {
         Visit visit = visit(VisitStatus.COMPLETED);
         Prescription prescription = prescription(visit, loratadine);
         when(prescriptionRepository.findById(prescription.getId())).thenReturn(Optional.of(prescription));
+        when(visitService.getEditableEntity(visit.getId())).thenReturn(visit);
+        when(medicineRepository.findAllById(anyCollection())).thenReturn(List.of(cetirizine));
+
+        PrescriptionResponse response = service.update(prescription.getId(),
+                new UpdatePrescriptionRequest(null, List.of(item(cetirizine.getId()))));
+
+        assertThat(response.items()).extracting(i -> i.medicineId()).containsExactly(cetirizine.getId());
+    }
+
+    @Test
+    void aBilledVisitsPrescriptionStaysAsTheBillHasIt() {
+        Visit visit = visit(VisitStatus.COMPLETED);
+        Prescription prescription = prescription(visit, loratadine);
+        when(prescriptionRepository.findById(prescription.getId())).thenReturn(Optional.of(prescription));
+        when(visitService.getEditableEntity(visit.getId())).thenReturn(visit);
+        when(invoiceRepository.existsByVisitIdAndStatusNot(visit.getId(), InvoiceStatus.VOID)).thenReturn(true);
+
+        assertThatThrownBy(() -> service.update(prescription.getId(),
+                new UpdatePrescriptionRequest(null, List.of(item(cetirizine.getId())))))
+                .isInstanceOf(BusinessRuleException.class)
+                .hasMessageContaining("billed");
+        assertThatThrownBy(() -> service.delete(prescription.getId()))
+                .isInstanceOf(BusinessRuleException.class)
+                .hasMessageContaining("billed");
+        assertThatThrownBy(() -> service.create(
+                new CreatePrescriptionRequest(visit.getId(), null, List.of(item(cetirizine.getId())))))
+                .isInstanceOf(BusinessRuleException.class)
+                .hasMessageContaining("billed");
+        verify(prescriptionRepository, never()).delete(any(Prescription.class));
+    }
+
+    @Test
+    void delete_checksTheVisitIsStillEditable() {
+        Visit visit = visit(VisitStatus.CANCELLED);
+        Prescription prescription = prescription(visit, loratadine);
+        when(prescriptionRepository.findById(prescription.getId())).thenReturn(Optional.of(prescription));
         when(visitService.getEditableEntity(visit.getId()))
-                .thenThrow(new BusinessRuleException("Visit is COMPLETED and can no longer be changed"));
+                .thenThrow(new BusinessRuleException("Visit is CANCELLED and can no longer be changed"));
 
         assertThatThrownBy(() -> service.delete(prescription.getId()))
                 .isInstanceOf(BusinessRuleException.class);

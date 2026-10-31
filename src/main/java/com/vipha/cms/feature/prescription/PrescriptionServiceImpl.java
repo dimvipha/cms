@@ -4,6 +4,8 @@ import com.vipha.cms.common.ClinicProperties;
 import com.vipha.cms.common.dto.PdfFile;
 import com.vipha.cms.common.exception.BusinessRuleException;
 import com.vipha.cms.common.exception.ResourceNotFoundException;
+import com.vipha.cms.feature.billing.InvoiceRepository;
+import com.vipha.cms.feature.billing.InvoiceStatus;
 import com.vipha.cms.feature.care.CareScope;
 import com.vipha.cms.feature.pharmacy.Medicine;
 import com.vipha.cms.feature.pharmacy.MedicineRepository;
@@ -48,10 +50,11 @@ public class PrescriptionServiceImpl implements PrescriptionService {
     private final KeycloakUserService keycloakUserService;
     private final ClinicProperties clinicProperties;
     private final CareScope careScope;
+    private final InvoiceRepository invoiceRepository;
 
     @Override
     public PrescriptionResponse create(CreatePrescriptionRequest request) {
-        Visit visit = visitService.getEditableEntity(request.visitId());
+        Visit visit = getPrescribableVisit(request.visitId());
         if (prescriptionRepository.existsByVisitId(visit.getId())) {
             throw new BusinessRuleException("This visit already has a prescription; update it instead");
         }
@@ -90,7 +93,7 @@ public class PrescriptionServiceImpl implements PrescriptionService {
     @Override
     public PrescriptionResponse update(UUID id, UpdatePrescriptionRequest request) {
         Prescription prescription = getPrescription(id);
-        visitService.getEditableEntity(prescription.getVisit().getId());
+        getPrescribableVisit(prescription.getVisit().getId());
 
         prescription.setNotes(request.notes());
         replaceItems(prescription, request.items());
@@ -102,7 +105,7 @@ public class PrescriptionServiceImpl implements PrescriptionService {
     @Override
     public void delete(UUID id) {
         Prescription prescription = getPrescription(id);
-        visitService.getEditableEntity(prescription.getVisit().getId());
+        getPrescribableVisit(prescription.getVisit().getId());
         prescriptionRepository.delete(prescription);
     }
 
@@ -121,6 +124,15 @@ public class PrescriptionServiceImpl implements PrescriptionService {
         LocalDate date = LocalDate.ofInstant(prescription.getPrescribedAt(), clinicProperties.timeZone());
         String fileName = "prescription-%s-%s.pdf".formatted(prescription.getPatient().getMrn(), date);
         return new PdfFile(fileName, content);
+    }
+
+    /** The bill copies the prescription's medicines, so once there is one the prescription stays. */
+    private Visit getPrescribableVisit(UUID visitId) {
+        Visit visit = visitService.getEditableEntity(visitId);
+        if (invoiceRepository.existsByVisitIdAndStatusNot(visitId, InvoiceStatus.VOID)) {
+            throw new BusinessRuleException("This visit has been billed; void its invoice to change the prescription");
+        }
+        return visit;
     }
 
     private Prescription getPrescription(UUID id) {

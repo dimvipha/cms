@@ -108,6 +108,10 @@ public class VisitServiceImpl implements VisitService {
     @Override
     public VisitResponse update(UUID id, UpdateVisitRequest request) {
         Visit visit = getEditableEntity(id);
+        if (visit.getStatus() == VisitStatus.COMPLETED && request.diagnosis() != null
+                && !StringUtils.hasText(request.diagnosis())) {
+            throw new BusinessRuleException("A completed visit must keep its diagnosis");
+        }
         visitMapper.updateEntity(request, visit);
         if (request.diagnosisCode() != null) {
             visit.setDiagnosisCode(StringUtils.hasText(request.diagnosisCode())
@@ -158,13 +162,7 @@ public class VisitServiceImpl implements VisitService {
         if (visit.getStatus().isClosed()) {
             throw new BusinessRuleException("Cannot record vitals on a " + visit.getStatus() + " visit");
         }
-        if (request.isEmpty()) {
-            throw new BusinessRuleException("Record at least one measurement");
-        }
-        if (request.systolicBp() != null && request.diastolicBp() != null
-                && request.systolicBp() <= request.diastolicBp()) {
-            throw new BusinessRuleException("Systolic pressure must be higher than diastolic pressure");
-        }
+        assertValidReading(request);
 
         VitalSign vitalSign = visitMapper.toVitalSign(request);
         vitalSign.setVisit(visit);
@@ -173,12 +171,27 @@ public class VisitServiceImpl implements VisitService {
     }
 
     @Override
+    public VitalSignResponse correctVitals(UUID visitId, UUID vitalSignId, RecordVitalSignRequest request) {
+        Visit visit = getVisit(visitId);
+        careScope.assertCovers(visit.getPatient().getId());
+        assertNotCancelled(visit);
+        // whoever takes readings can fix them during the visit; after it the record is its doctor's
+        if (visit.getStatus() == VisitStatus.COMPLETED) {
+            assertAssignedDoctor(visit);
+        }
+        assertValidReading(request);
+
+        VitalSign vitalSign = vitalSignRepository.findByIdAndVisitId(vitalSignId, visitId)
+                .orElseThrow(() -> new ResourceNotFoundException("Vital sign not found"));
+        visitMapper.updateVitalSign(request, vitalSign);
+        return visitMapper.toVitalSignResponse(vitalSign);
+    }
+
+    @Override
     public Visit getEditableEntity(UUID id) {
         Visit visit = getVisit(id);
         assertAssignedDoctor(visit);
-        if (visit.getStatus().isClosed()) {
-            throw new BusinessRuleException("Visit is " + visit.getStatus() + " and can no longer be changed");
-        }
+        assertNotCancelled(visit);
         return visit;
     }
 
@@ -244,6 +257,22 @@ public class VisitServiceImpl implements VisitService {
     private Visit getVisit(UUID id) {
         return visitRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Visit not found"));
+    }
+
+    private static void assertNotCancelled(Visit visit) {
+        if (visit.getStatus() == VisitStatus.CANCELLED) {
+            throw new BusinessRuleException("Visit is CANCELLED and can no longer be changed");
+        }
+    }
+
+    private static void assertValidReading(RecordVitalSignRequest request) {
+        if (request.isEmpty()) {
+            throw new BusinessRuleException("Record at least one measurement");
+        }
+        if (request.systolicBp() != null && request.diastolicBp() != null
+                && request.systolicBp() <= request.diastolicBp()) {
+            throw new BusinessRuleException("Systolic pressure must be higher than diastolic pressure");
+        }
     }
 
     private void assertAssignedDoctor(Visit visit) {

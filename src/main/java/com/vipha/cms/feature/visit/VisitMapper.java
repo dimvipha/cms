@@ -1,5 +1,7 @@
 package com.vipha.cms.feature.visit;
 
+import com.vipha.cms.feature.billing.InvoiceRepository;
+import com.vipha.cms.feature.billing.InvoiceStatus;
 import com.vipha.cms.feature.patient.PatientMapper;
 import com.vipha.cms.feature.visit.dto.RecordVitalSignRequest;
 import com.vipha.cms.feature.visit.dto.UpdateVisitRequest;
@@ -16,10 +18,20 @@ public abstract class VisitMapper {
     @Autowired
     protected UserNames userNames;
 
+    @Autowired
+    protected InvoiceRepository invoiceRepository;
+
     @Mapping(target = "doctorId", source = "doctor.userId")
     @Mapping(target = "doctorName", expression = "java(userNames.fullName(visit.getDoctor().getUserId()))")
     @Mapping(target = "appointmentId", source = "appointment.id")
+    @Mapping(target = "billed", expression = "java(isBilled(visit))")
     public abstract VisitResponse toResponse(Visit visit);
+
+    /** Only completed visits can be billed, and a voided invoice no longer counts. */
+    protected boolean isBilled(Visit visit) {
+        return visit.getStatus() == VisitStatus.COMPLETED
+                && invoiceRepository.existsByVisitIdAndStatusNot(visit.getId(), InvoiceStatus.VOID);
+    }
 
     @Mapping(target = "doctorId", source = "doctor.userId")
     @Mapping(target = "doctorName", expression = "java(userNames.fullName(visit.getDoctor().getUserId()))")
@@ -39,6 +51,16 @@ public abstract class VisitMapper {
     @Mapping(target = "visit", ignore = true)
     @Mapping(target = "recordedAt", ignore = true)
     public abstract VitalSign toVitalSign(RecordVitalSignRequest request);
+
+    /** Replaces every measurement, so one left out is cleared. */
+    @Mapping(target = "id", ignore = true)
+    @Mapping(target = "createdAt", ignore = true)
+    @Mapping(target = "updatedAt", ignore = true)
+    @Mapping(target = "createdBy", ignore = true)
+    @Mapping(target = "updatedBy", ignore = true)
+    @Mapping(target = "visit", ignore = true)
+    @Mapping(target = "recordedAt", ignore = true)
+    public abstract void updateVitalSign(RecordVitalSignRequest request, @MappingTarget VitalSign vitalSign);
 
     @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
     @Mapping(target = "id", ignore = true)

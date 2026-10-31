@@ -2,7 +2,8 @@ package com.vipha.cms.feature.visit;
 
 /**
  * OPEN → IN_PROGRESS → COMPLETED, with CANCELLED reachable from either
- * non-terminal state. Closed visits are read-only.
+ * non-terminal state. A closed visit's status stays; its doctor can still correct the record of a
+ * completed visit, while a cancelled visit stays as it is.
  */
 public enum VisitStatus {
     OPEN,

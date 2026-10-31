@@ -2139,6 +2139,45 @@
                   "pm.test('201 Created, recorded by the nurse by name', () => {",
                   "    pm.response.to.have.status(201);",
                   "    pm.expect(pm.response.json().recordedByName).to.eql('Ploy Wongsa');",
+                  "});",
+                  "pm.collectionVariables.set('vitalSignId', pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Correct the reading",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/visits/{{visitId}}/vitals/{{vitalSignId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"systolicBp\": 118,\n  \"diastolicBp\": 76,\n  \"pulseRate\": 86,\n  \"respiratoryRate\": 18,\n  \"temperatureCelsius\": 38.2,\n  \"weightKg\": 58.5,\n  \"heightCm\": 162,\n  \"oxygenSaturation\": 98\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK, same reading corrected', () => {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.expect(pm.response.json().id).to.eql(pm.collectionVariables.get('vitalSignId'));",
+                  "    pm.expect(pm.response.json().pulseRate).to.eql(86);",
                   "});"
                 ]
               }
@@ -2476,7 +2515,7 @@
           ]
         },
         {
-          "name": "Edit after completion (rejected)",
+          "name": "Correct the notes after completion",
           "request": {
             "method": "PATCH",
             "header": [
@@ -2488,7 +2527,7 @@
             "url": "{{baseUrl}}/visits/{{visitId}}",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"notes\": \"Late edit\"\n}",
+              "raw": "{\n  \"notes\": \"Rest, fluids, review in 3 days if fever persists or cough worsens\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -2503,18 +2542,35 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('400 Bad Request', () => pm.response.to.have.status(400));"
+                  "pm.test('200 OK, the visit stays completed', () => {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.expect(pm.response.json().status).to.eql('COMPLETED');",
+                  "});"
                 ]
               }
             }
           ]
         },
         {
-          "name": "Change the prescription after completion (rejected)",
+          "name": "Empty the diagnosis after completion (rejected)",
           "request": {
-            "method": "DELETE",
-            "header": [],
-            "url": "{{baseUrl}}/prescriptions/{{prescriptionId}}"
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/visits/{{visitId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"diagnosis\": \"\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
           },
           "response": [],
           "event": [
@@ -3212,6 +3268,36 @@
             "method": "POST",
             "header": [],
             "url": "{{baseUrl}}/invoices/from-visit/{{visitId}}"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('400 Bad Request', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Change the prescription once billed (rejected)",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/prescriptions/{{prescriptionId}}",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{doctorToken}}",
+                  "type": "string"
+                }
+              ]
+            }
           },
           "response": [],
           "event": [

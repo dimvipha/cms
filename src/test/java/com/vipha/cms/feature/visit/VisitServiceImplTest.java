@@ -2,9 +2,12 @@ package com.vipha.cms.feature.visit;
 
 import com.vipha.cms.common.ClinicProperties;
 import com.vipha.cms.common.exception.BusinessRuleException;
+import com.vipha.cms.common.exception.ResourceNotFoundException;
 import com.vipha.cms.feature.appointment.Appointment;
 import com.vipha.cms.feature.appointment.AppointmentRepository;
 import com.vipha.cms.feature.appointment.AppointmentStatus;
+import com.vipha.cms.feature.billing.InvoiceRepository;
+import com.vipha.cms.feature.billing.InvoiceStatus;
 import com.vipha.cms.feature.care.CareScope;
 import com.vipha.cms.feature.doctor.Doctor;
 import com.vipha.cms.feature.doctor.DoctorRepository;
@@ -57,6 +60,7 @@ class VisitServiceImplTest {
     @Mock PatientRepository patientRepository;
     @Mock DoctorRepository doctorRepository;
     @Mock CareScope careScope;
+    @Mock InvoiceRepository invoiceRepository;
 
     VisitServiceImpl service;
 
@@ -65,6 +69,7 @@ class VisitServiceImplTest {
         VisitMapperImpl mapper = new VisitMapperImpl();
         ReflectionTestUtils.setField(mapper, "patientMapper", new PatientMapperImpl());
         ReflectionTestUtils.setField(mapper, "userNames", userNames);
+        ReflectionTestUtils.setField(mapper, "invoiceRepository", invoiceRepository);
         service = new VisitServiceImpl(visitRepository, vitalSignRepository, appointmentRepository,
                 patientRepository, doctorRepository, mapper,
                 new ClinicProperties("Test Clinic", "", "", ZoneId.of("Asia/Bangkok")), careScope);
@@ -256,13 +261,55 @@ class VisitServiceImplTest {
     }
 
     @Test
-    void update_onCompletedVisit_isRejected() {
+    void update_correctsACompletedVisit() {
         Visit visit = visit(VisitStatus.COMPLETED);
+        when(visitRepository.findById(visit.getId())).thenReturn(Optional.of(visit));
+
+        VisitResponse response = service.update(visit.getId(), new UpdateVisitRequest(null, null, "Migraine", null));
+
+        assertThat(response.diagnosis()).isEqualTo("Migraine");
+        assertThat(response.status()).isEqualTo(VisitStatus.COMPLETED);
+    }
+
+    @Test
+    void update_aCompletedVisitKeepsItsDiagnosis() {
+        Visit visit = visit(VisitStatus.COMPLETED);
+        visit.setDiagnosis("Migraine");
+        when(visitRepository.findById(visit.getId())).thenReturn(Optional.of(visit));
+
+        assertThatThrownBy(() -> service.update(visit.getId(), new UpdateVisitRequest(null, null, " ", null)))
+                .isInstanceOf(BusinessRuleException.class)
+                .hasMessageContaining("keep its diagnosis");
+        assertThat(visit.getDiagnosis()).isEqualTo("Migraine");
+    }
+
+    @Test
+    void update_ofACompletedVisit_byAnotherDoctor_isForbidden() {
+        Visit visit = visit(VisitStatus.COMPLETED);
+        when(visitRepository.findById(visit.getId())).thenReturn(Optional.of(visit));
+        TestAuth.loginAs(OTHER_DOCTOR_ID, Roles.DOCTOR);
+
+        assertThatThrownBy(() -> service.update(visit.getId(), new UpdateVisitRequest(null, null, "x", null)))
+                .isInstanceOf(AccessDeniedException.class);
+    }
+
+    @Test
+    void update_onCancelledVisit_isRejected() {
+        Visit visit = visit(VisitStatus.CANCELLED);
         when(visitRepository.findById(visit.getId())).thenReturn(Optional.of(visit));
 
         assertThatThrownBy(() -> service.update(visit.getId(), new UpdateVisitRequest(null, null, "x", null)))
                 .isInstanceOf(BusinessRuleException.class)
                 .hasMessageContaining("can no longer be changed");
+    }
+
+    @Test
+    void response_saysWhetherACompletedVisitHasBeenBilled() {
+        Visit visit = visit(VisitStatus.COMPLETED);
+        when(visitRepository.findById(visit.getId())).thenReturn(Optional.of(visit));
+        when(invoiceRepository.existsByVisitIdAndStatusNot(visit.getId(), InvoiceStatus.VOID)).thenReturn(true);
+
+        assertThat(service.get(visit.getId()).billed()).isTrue();
     }
 
     // ── status transitions ──────────────────────────────────────────────────
@@ -387,6 +434,62 @@ class VisitServiceImplTest {
         assertThat(service.recordVitals(visit.getId(), reading(118, 76))).isNotNull();
     }
 
+    @Test
+    void correctVitals_replacesTheMeasurementsAndKeepsWhenTheyWereTaken() {
+        Visit visit = visit(VisitStatus.IN_PROGRESS);
+        VitalSign reading = savedReading(visit);
+        Instant takenAt = reading.getRecordedAt();
+        when(visitRepository.findById(visit.getId())).thenReturn(Optional.of(visit));
+        when(vitalSignRepository.findByIdAndVisitId(reading.getId(), visit.getId())).thenReturn(Optional.of(reading));
+        TestAuth.loginAs("nurse-1", Roles.NURSE);
+
+        VitalSignResponse response = service.correctVitals(visit.getId(), reading.getId(), reading(118, 76));
+
+        assertThat(response.systolicBp()).isEqualTo(118);
+        assertThat(response.pulseRate()).as("left out, so cleared").isNull();
+        assertThat(response.recordedAt()).isEqualTo(takenAt);
+    }
+
+    @Test
+    void correctVitals_onACompletedVisit_isForItsDoctor() {
+        Visit visit = visit(VisitStatus.COMPLETED);
+        VitalSign reading = savedReading(visit);
+        when(visitRepository.findById(visit.getId())).thenReturn(Optional.of(visit));
+        when(vitalSignRepository.findByIdAndVisitId(reading.getId(), visit.getId())).thenReturn(Optional.of(reading));
+
+        assertThat(service.correctVitals(visit.getId(), reading.getId(), reading(118, 76)).systolicBp()).isEqualTo(118);
+
+        TestAuth.loginAs("nurse-1", Roles.NURSE);
+        assertThatThrownBy(() -> service.correctVitals(visit.getId(), reading.getId(), reading(120, 76)))
+                .isInstanceOf(AccessDeniedException.class);
+    }
+
+    @Test
+    void correctVitals_rejectsACancelledVisit_andAnImpossibleReading() {
+        Visit cancelled = visit(VisitStatus.CANCELLED);
+        Visit open = visit(VisitStatus.OPEN);
+        when(visitRepository.findById(cancelled.getId())).thenReturn(Optional.of(cancelled));
+        when(visitRepository.findById(open.getId())).thenReturn(Optional.of(open));
+
+        assertThatThrownBy(() -> service.correctVitals(cancelled.getId(), UUID.randomUUID(), reading(120, 80)))
+                .isInstanceOf(BusinessRuleException.class)
+                .hasMessageContaining("CANCELLED");
+        assertThatThrownBy(() -> service.correctVitals(open.getId(), UUID.randomUUID(), reading(80, 80)))
+                .isInstanceOf(BusinessRuleException.class)
+                .hasMessageContaining("Systolic");
+    }
+
+    @Test
+    void correctVitals_mustBeAReadingOfThatVisit() {
+        Visit visit = visit(VisitStatus.OPEN);
+        UUID elsewhere = UUID.randomUUID();
+        when(visitRepository.findById(visit.getId())).thenReturn(Optional.of(visit));
+        when(vitalSignRepository.findByIdAndVisitId(elsewhere, visit.getId())).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.correctVitals(visit.getId(), elsewhere, reading(120, 80)))
+                .isInstanceOf(ResourceNotFoundException.class);
+    }
+
     // ── a doctor's own patients ─────────────────────────────────────────────
 
     @Test
@@ -464,5 +567,16 @@ class VisitServiceImplTest {
         visit.setChiefComplaint("Cough");
         visit.setStatus(status);
         return visit;
+    }
+
+    private static VitalSign savedReading(Visit visit) {
+        VitalSign reading = new VitalSign();
+        reading.setId(UUID.randomUUID());
+        reading.setVisit(visit);
+        reading.setRecordedAt(Instant.parse("2026-10-21T07:00:00Z"));
+        reading.setSystolicBp(180);
+        reading.setDiastolicBp(80);
+        reading.setPulseRate(72);
+        return reading;
     }
 }

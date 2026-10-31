@@ -70,6 +70,8 @@ class ConsultationSecurityTest {
                 .andExpect(status().isCreated());
         mvc.perform(post("/api/v1/visits/{id}/vitals", id).with(as(NURSE)).contentType(MediaType.APPLICATION_JSON).content(VITALS))
                 .andExpect(status().isCreated());
+        mvc.perform(put("/api/v1/visits/{id}/vitals/{vitalSignId}", id, id).with(as(NURSE)).contentType(MediaType.APPLICATION_JSON).content(VITALS))
+                .andExpect(status().isOk());
         mvc.perform(get("/api/v1/visits/{id}", id).with(as(NURSE)))
                 .andExpect(status().isOk());
 
@@ -126,6 +128,8 @@ class ConsultationSecurityTest {
                 .andExpect(status().isCreated());
         mvc.perform(post("/api/v1/visits/{id}/start", id).with(as(RECEPTIONIST))).andExpect(status().isForbidden());
         mvc.perform(post("/api/v1/visits/{id}/vitals", id).with(as(RECEPTIONIST)).contentType(MediaType.APPLICATION_JSON).content(VITALS))
+                .andExpect(status().isForbidden());
+        mvc.perform(put("/api/v1/visits/{id}/vitals/{vitalSignId}", id, id).with(as(RECEPTIONIST)).contentType(MediaType.APPLICATION_JSON).content(VITALS))
                 .andExpect(status().isForbidden());
         mvc.perform(get("/api/v1/visits").with(as(RECEPTIONIST))).andExpect(status().isForbidden());
         mvc.perform(get("/api/v1/prescriptions/{id}", id).with(as(RECEPTIONIST))).andExpect(status().isForbidden());
