@@ -323,6 +323,44 @@ class VisitServiceImplTest {
     }
 
     @Test
+    void start_byAnotherDoctor_takesTheVisitAndItsAppointmentOver() {
+        Visit visit = visit(VisitStatus.OPEN);
+        Appointment appointment = new Appointment();
+        appointment.setDoctor(visit.getDoctor());
+        visit.setAppointment(appointment);
+        Doctor taker = doctor(OTHER_DOCTOR_ID);
+        when(visitRepository.findById(visit.getId())).thenReturn(Optional.of(visit));
+        when(doctorRepository.findById(OTHER_DOCTOR_ID)).thenReturn(Optional.of(taker));
+        TestAuth.loginAs(OTHER_DOCTOR_ID, Roles.DOCTOR);
+
+        VisitResponse response = service.start(visit.getId());
+
+        assertThat(response.status()).isEqualTo(VisitStatus.IN_PROGRESS);
+        assertThat(response.doctorId()).isEqualTo(OTHER_DOCTOR_ID);
+        assertThat(appointment.getDoctor()).isSameAs(taker);
+    }
+
+    @Test
+    void start_outsideTheDoctorsCare_isForbidden() {
+        Visit visit = visit(VisitStatus.OPEN);
+        when(visitRepository.findById(visit.getId())).thenReturn(Optional.of(visit));
+        doThrow(new AccessDeniedException("not in care")).when(careScope).assertCovers(visit.getPatient().getId());
+        TestAuth.loginAs(OTHER_DOCTOR_ID, Roles.DOCTOR);
+
+        assertThatThrownBy(() -> service.start(visit.getId())).isInstanceOf(AccessDeniedException.class);
+        assertThat(visit.getStatus()).isEqualTo(VisitStatus.OPEN);
+    }
+
+    @Test
+    void start_byAnAdmin_keepsTheVisitsDoctor() {
+        Visit visit = visit(VisitStatus.OPEN);
+        when(visitRepository.findById(visit.getId())).thenReturn(Optional.of(visit));
+        TestAuth.loginAs("admin-1", Roles.ADMIN);
+
+        assertThat(service.start(visit.getId()).doctorId()).isEqualTo(DOCTOR_ID);
+    }
+
+    @Test
     void complete_requiresVisitToBeStarted() {
         Visit visit = visit(VisitStatus.OPEN);
         visit.setDiagnosis("Common cold");

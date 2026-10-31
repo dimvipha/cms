@@ -124,7 +124,7 @@ public class VisitServiceImpl implements VisitService {
     @Override
     public VisitResponse start(UUID id) {
         Visit visit = getVisit(id);
-        assertAssignedDoctor(visit);
+        takeOver(visit);
         moveTo(visit, VisitStatus.IN_PROGRESS);
         return visitMapper.toResponse(visit);
     }
@@ -272,6 +272,21 @@ public class VisitServiceImpl implements VisitService {
         if (request.systolicBp() != null && request.diastolicBp() != null
                 && request.systolicBp() <= request.diastolicBp()) {
             throw new BusinessRuleException("Systolic pressure must be higher than diastolic pressure");
+        }
+    }
+
+    /** The doctor who starts a visit is the one seeing the patient, whoever it was booked with. */
+    private void takeOver(Visit visit) {
+        String callerId = AuthUtils.extractUserId();
+        if (AuthUtils.hasAuthority(Roles.ADMIN) || visit.getDoctor().getUserId().equals(callerId)) {
+            return;
+        }
+        careScope.assertCovers(visit.getPatient().getId());
+        Doctor doctor = doctorRepository.findById(callerId)
+                .orElseThrow(() -> new AccessDeniedException("Only a doctor can start a visit"));
+        visit.setDoctor(doctor);
+        if (visit.getAppointment() != null) {
+            visit.getAppointment().setDoctor(doctor);
         }
     }
 
